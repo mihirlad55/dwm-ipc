@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/epoll.h>
 #include <X11/cursorfont.h>
 #include <X11/keysym.h>
 #include <X11/Xatom.h>
@@ -261,6 +262,7 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 	[UnmapNotify] = unmapnotify
 };
 static Atom wmatom[WMLast], netatom[NetLast];
+static int epoll_fd;
 static int running = 1;
 static Cur *cursor[CurLast];
 static Clr **scheme;
@@ -492,6 +494,10 @@ cleanup(void)
 	XSync(dpy, False);
 	XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
 	XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
+
+    if (close(epoll_fd)) {
+        fprintf(stderr, "Failed to close epoll file descriptor\n");
+    }
 }
 
 void
@@ -1373,12 +1379,20 @@ restack(Monitor *m)
 void
 run(void)
 {
+    int event_count = 0;
+    struct epoll_event events[2];
+
 	XEvent ev;
 	/* main event loop */
 	XSync(dpy, False);
-	while (running && !XNextEvent(dpy, &ev))
-		if (handler[ev.type])
-			handler[ev.type](&ev); /* call handler */
+    while (running) {
+        event_count = epoll_wait(epoll_fd, events, 2, -1);
+        while (!XNextEvent(dpy, &ev)) {
+            if (handler[ev.type])
+                handler[ev.type](&ev); /* call handler */
+        }
+    }
+
 }
 
 void
@@ -1595,6 +1609,22 @@ setup(void)
 	XSelectInput(dpy, root, wa.event_mask);
 	grabkeys();
 	focus(NULL);
+
+    epoll_fd = epoll_create1(0);
+    int dpy_fd_num = ConnectionNumber(dpy);
+    struct epoll_event event;
+
+    if (epoll_fd == -1) {
+        fprintf(stderr, "Failed to create epoll file descriptor\n");
+    }
+
+    event.events = EPOLLIN;
+    event.data.fd = dpy_fd_num;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, dpy_fd_num, &event)) {
+        fprintf(stderr, "Failed to add file descriptor to epoll\n");
+        close(epoll_fd);
+    }
 }
 
 
