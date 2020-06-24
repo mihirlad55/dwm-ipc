@@ -177,7 +177,7 @@ static long getstate(Window w);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
 static void grabkeys(void);
-static void handlexevent(void);
+static int handlexevent(struct epoll_event *ev);
 static int handlesockevent(struct epoll_event *ev);
 static int handleipcevent(int fd, struct epoll_event *ev);
 static void incnmaster(const Arg *arg);
@@ -977,15 +977,21 @@ grabkeys(void)
 	}
 }
 
-void
-handlexevent(void)
+int
+handlexevent(struct epoll_event *ev)
 {
-	XEvent ev;
-    while (running && XPending(dpy)) {
-        XNextEvent(dpy, &ev);
-        if (handler[ev.type])
-            handler[ev.type](&ev); /* call handler */
+    if (ev->events & EPOLLIN) {
+        XEvent ev;
+        while (running && XPending(dpy)) {
+            XNextEvent(dpy, &ev);
+            if (handler[ev.type])
+                handler[ev.type](&ev); /* call handler */
+        }
+    } else if (ev-> events & EPOLLHUP) {
+        return -1;
     }
+
+    return 0;
 }
 
 int
@@ -1450,7 +1456,8 @@ run(void)
             fprintf(stderr, "Got event from fd %d\n", event_fd);
 
             if (event_fd == dpy_fd) {
-                handlexevent();
+                // -1 means EPOLLHUP
+                if (handlexevent(events + i) == -1) return;
             } else if (event_fd == sock_fd) {
                 handlesockevent(events + i);
             } else {
