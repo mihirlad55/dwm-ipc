@@ -1,0 +1,5 @@
+*.diff
+*.o
+config.h
+dwm
+ipc-client
