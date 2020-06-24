@@ -3,10 +3,10 @@
 
 include config.mk
 
-SRC = drw.c dwm.c util.c
+SRC = drw.c dwm.c util.c ipc.c
 OBJ = ${SRC:.c=.o}
 
-all: options dwm
+all: options dwm ipc-client
 
 options:
 	@echo dwm build options:
@@ -25,8 +25,12 @@ config.h:
 dwm: ${OBJ}
 	${CC} -o $@ ${OBJ} ${LDFLAGS}
 
+ipc-client: ipc-client.c
+	${CC} ipc-client.c -o $@ ${LDFLAGS}
+
 clean:
 	rm -f dwm ${OBJ} dwm-${VERSION}.tar.gz
+	rm -rf ~/shared/dwm-ipc
 
 dist: clean
 	mkdir -p dwm-${VERSION}
@@ -43,6 +47,10 @@ install: all
 	mkdir -p ${DESTDIR}${MANPREFIX}/man1
 	sed "s/VERSION/${VERSION}/g" < dwm.1 > ${DESTDIR}${MANPREFIX}/man1/dwm.1
 	chmod 644 ${DESTDIR}${MANPREFIX}/man1/dwm.1
+
+debug: all
+	mkdir -p ~/shared/dwm-ipc
+	cp -rf * ~/shared/dwm-ipc/
 
 uninstall:
 	rm -f ${DESTDIR}${PREFIX}/bin/dwm\
