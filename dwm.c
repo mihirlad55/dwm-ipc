@@ -204,6 +204,7 @@ static void setfullscreen(Client *c, int fullscreen);
 static void setlayout(const Arg *arg);
 static void setmfact(const Arg *arg);
 static void setup(void);
+static void setupepoll(void);
 static void seturgent(Client *c, int urg);
 static void showhide(Client *c);
 static void sigchld(int unused);
@@ -263,6 +264,8 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 };
 static Atom wmatom[WMLast], netatom[NetLast];
 static int epoll_fd;
+static int dpy_fd;
+static int sock_fd;
 static int running = 1;
 static Cur *cursor[CurLast];
 static Clr **scheme;
@@ -1609,24 +1612,33 @@ setup(void)
 	XSelectInput(dpy, root, wa.event_mask);
 	grabkeys();
 	focus(NULL);
-
-    epoll_fd = epoll_create1(0);
-    int dpy_fd_num = ConnectionNumber(dpy);
-    struct epoll_event event;
-
-    if (epoll_fd == -1) {
-        fprintf(stderr, "Failed to create epoll file descriptor\n");
-    }
-
-    event.events = EPOLLIN;
-    event.data.fd = dpy_fd_num;
-
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, dpy_fd_num, &event)) {
-        fprintf(stderr, "Failed to add file descriptor to epoll\n");
-        close(epoll_fd);
-    }
+    setupepoll();
 }
 
+void
+setupepoll(void)
+{
+
+    epoll_fd = epoll_create1(0);
+    dpy_fd = ConnectionNumber(dpy);
+    struct epoll_event dpy_event;
+
+    fprintf(stderr, "Display socket is fd %d\n", dpy_fd);
+
+    if (epoll_fd == -1) {
+        fputs("Failed to create epoll file descriptor", stderr);
+    }
+
+    dpy_event.events = EPOLLIN;
+    dpy_event.data.fd = dpy_fd;
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, dpy_fd, &dpy_event)) {
+      fputs("Failed to add display file descriptor to epoll", stderr);
+      close(epoll_fd);
+      exit(1);
+    }
+
+    }
+}
 
 void
 seturgent(Client *c, int urg)
