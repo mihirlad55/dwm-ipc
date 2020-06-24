@@ -1618,10 +1618,11 @@ setup(void)
 void
 setupepoll(void)
 {
+    sock_fd = create_socket(DWM_SOCKET_PATH);
 
     epoll_fd = epoll_create1(0);
     dpy_fd = ConnectionNumber(dpy);
-    struct epoll_event dpy_event;
+    struct epoll_event dpy_event, sock_event;
 
     fprintf(stderr, "Display socket is fd %d\n", dpy_fd);
 
@@ -1637,6 +1638,10 @@ setupepoll(void)
       exit(1);
     }
 
+    sock_event.events = EPOLLIN;
+    sock_event.data.fd = sock_fd;
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock_fd, &sock_event)) {
+        fputs("Failed to add sock file descripttor to epoll", stderr);
     }
 }
 
