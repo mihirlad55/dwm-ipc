@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include <inttypes.h>
+#include <stdlib.h>
 
 #include "ipc.h"
 
@@ -82,20 +84,112 @@ ipc_accept_client(int sock_fd, struct epoll_event *event)
     return fd;
 }
 
-int
-ipc_read_client(int fd) {
-    int res = 1;
-    char buffer[100] = {0};
+int ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size, uint8_t **reply)
+{
+    uint32_t read_bytes = 0;
+    const int32_t to_read = sizeof(dwm_ipc_header_t);
+    char header[to_read];
+    char *walk = header;
 
-    while ( (res = read(fd, buffer, 100)) ) {
-        fprintf(stderr, "%s\n", buffer);
+    // Try to read header
+    while (read_bytes < to_read) {
+        int n = read(fd, header + read_bytes, to_read - read_bytes);
+
+        if (n == 0) {
+            if (read_bytes == 0) {
+                fprintf(stderr, "Unexpectedly reached EOF while reading header.");
+                fprintf(stderr, "Read %"PRIu32" bytes, expected %"PRIu32" bytes.",
+                        read_bytes, *reply_size);
+                return -2;
+            } else {
+                fprintf(stderr, "Unexpectedly reached EOF while reading header.");
+                fprintf(stderr, "Read %"PRIu32" bytes, expected %"PRIu32" bytes.",
+                        read_bytes, *reply_size);
+                return -3;
+            }
+        } else if (n == -1) {
+            return -1;
+        }
+
+        read_bytes += n;
     }
 
-    return res;
+    // Check if magic string in header matches
+    if (memcmp(walk, IPC_MAGIC, IPC_MAGIC_LEN) != 0) {
+        fprintf(stderr, "Invalid magic string. Got '%.*s', expected '%s'",
+                IPC_MAGIC_LEN, walk, IPC_MAGIC);
+        return -3;
+    }
+
+    walk += IPC_MAGIC_LEN;
+
+    // Extract reply size
+    memcpy(reply_size, walk, sizeof(uint32_t));
+    walk += sizeof(uint32_t);
+
+    // Extract message type
+    memcpy(msg_type, walk, sizeof(uint8_t));
+    walk += sizeof(uint8_t);
+
+    (*reply) = malloc(*reply_size);
+
+    read_bytes = 0;
+    while (read_bytes < *reply_size) {
+        const int n = read(fd, *reply + read_bytes, *reply_size - read_bytes);
+        fprintf(stderr, "Message so far: %s\n", *reply);
+        fprintf(stderr, "Read %"PRIu32" bytes", n);
+
+        if (n == 0) {
+            fprintf(stderr, "Unexpectedly reached EOF while reading payload.");
+            fprintf(stderr, "Read %"PRIu32" bytes, expected %"PRIu32" bytes.",
+                    read_bytes, *reply_size);
+            free(*reply);
+            return -2;
+        } else if (n == -1) {
+            // TODO: Should we return and wait for another epoll event?
+            // This would require saving the partial read in some way.
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                continue;
+            free(*reply);
+            return -1;
+        }
+
+        read_bytes += n;
+    }
+
+    fprintf(stderr, "MEssage: %s\n", *reply);
+    return 0;
 }
 
 int
-ipc_remove_client(int fd) {
+ipc_read_client(int fd)
+{
+    uint8_t msg_type;
+    uint32_t msg_size;
+    uint8_t *msg = NULL;
+
+    int ret = ipc_recv_message(fd, &msg_type, &msg_size, &msg);
+
+    if (ret < 0) {
+        // Will happen if these errors occur while reading header
+        if (ret == -1 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
+            return -2;
+
+        // TODO: Remove client
+        return -1;
+    }
+
+    fprintf(stderr, "Received message: '%s' ", (char*)msg);
+    fprintf(stderr, "Message type: %"PRIu8" ", msg_type);
+    fprintf(stderr, "Message size: %"PRIu32"\n", msg_size);
+
+    free(msg);
+    return 0;
+}
+
+int
+ipc_remove_client(int fd)
+{
     int res = close(fd);
 
     if (res == 0) {
