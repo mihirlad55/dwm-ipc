@@ -44,6 +44,7 @@
 
 #include "drw.h"
 #include "util.h"
+#include "ipc.h"
 
 /* macros */
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
@@ -176,6 +177,9 @@ static long getstate(Window w);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
 static void grabkeys(void);
+static void handlexevent(void);
+static int handlesockevent(struct epoll_event *ev);
+static int handleipcevent(int fd, struct epoll_event *ev);
 static void incnmaster(const Arg *arg);
 static void keypress(XEvent *e);
 static void killclient(const Arg *arg);
@@ -974,6 +978,56 @@ grabkeys(void)
 }
 
 void
+handlexevent(void)
+{
+	XEvent ev;
+    while (running && XPending(dpy)) {
+        XNextEvent(dpy, &ev);
+        if (handler[ev.type])
+            handler[ev.type](&ev); /* call handler */
+    }
+}
+
+int
+handlesockevent(struct epoll_event *ev)
+{
+    if (!(ev->events & EPOLLIN)) return -1;
+
+    fputs("Received EPOLLIN event on socket\n", stderr);
+    int new_fd = ipc_accept_client(sock_fd, ev);
+
+    if (new_fd < 0)
+        return -1;
+
+    struct epoll_event client_event;
+
+    client_event.events = EPOLLIN;
+    client_event.data.fd = new_fd;
+    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &client_event);
+
+    return new_fd;
+}
+
+int handleipcevent(int fd, struct epoll_event *ev)
+{
+    if (ev->events & EPOLLHUP) {
+        struct epoll_event client_event;
+
+        fprintf(stderr, "EPOLLHUP received from client at fd %d\n", fd);
+        ipc_remove_client(fd);
+        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &client_event);
+    } else if (ev->events & EPOLLIN) {
+        fprintf(stderr, "Received message from fd %d\n", fd);
+        ipc_read_client(fd);
+    } else {
+        fprintf(stderr, "Epoll event returned %d from fd %d\n", ev->events, fd);
+        exit(1);
+    }
+
+    return 0;
+}
+
+void
 incnmaster(const Arg *arg)
 {
 	selmon->nmaster = MAX(selmon->nmaster + arg->i, 0);
@@ -1383,19 +1437,27 @@ void
 run(void)
 {
     int event_count = 0;
-    struct epoll_event events[2];
+    const int MAX_EVENTS = 10;
+    struct epoll_event events[MAX_EVENTS];
 
-	XEvent ev;
 	/* main event loop */
 	XSync(dpy, False);
     while (running) {
-        event_count = epoll_wait(epoll_fd, events, 2, -1);
-        while (!XNextEvent(dpy, &ev)) {
-            if (handler[ev.type])
-                handler[ev.type](&ev); /* call handler */
+        event_count = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+
+        for (int i = 0; i < event_count; i++) {
+            int event_fd = events[i].data.fd;
+            fprintf(stderr, "Got event from fd %d\n", event_fd);
+
+            if (event_fd == dpy_fd) {
+                handlexevent();
+            } else if (event_fd == sock_fd) {
+                handlesockevent(events + i);
+            } else {
+                handleipcevent(event_fd, events + i);
+            }
         }
     }
-
 }
 
 void
@@ -1404,7 +1466,6 @@ scan(void)
 	unsigned int i, num;
 	Window d1, d2, *wins = NULL;
 	XWindowAttributes wa;
-
 	if (XQueryTree(dpy, root, &d1, &d2, &wins, &num)) {
 		for (i = 0; i < num; i++) {
 			if (!XGetWindowAttributes(dpy, wins[i], &wa)
