@@ -980,57 +980,57 @@ grabkeys(void)
 int
 handlexevent(struct epoll_event *ev)
 {
-    if (ev->events & EPOLLIN) {
-        XEvent ev;
-        while (running && XPending(dpy)) {
-            XNextEvent(dpy, &ev);
-            if (handler[ev.type])
-                handler[ev.type](&ev); /* call handler */
-        }
-    } else if (ev-> events & EPOLLHUP) {
-        return -1;
+  if (ev->events & EPOLLIN) {
+    XEvent ev;
+    while (running && XPending(dpy)) {
+      XNextEvent(dpy, &ev);
+      if (handler[ev.type])
+        handler[ev.type](&ev); /* call handler */
     }
+  } else if (ev-> events & EPOLLHUP) {
+    return -1;
+  }
 
-    return 0;
+  return 0;
 }
 
 int
 handlesockevent(struct epoll_event *ev)
 {
-    if (!(ev->events & EPOLLIN)) return -1;
+  if (!(ev->events & EPOLLIN)) return -1;
 
-    fputs("Received EPOLLIN event on socket\n", stderr);
-    int new_fd = ipc_accept_client(sock_fd, ev);
+  fputs("Received EPOLLIN event on socket\n", stderr);
+  int new_fd = ipc_accept_client(sock_fd, ev);
 
-    if (new_fd < 0)
-        return -1;
+  if (new_fd < 0)
+    return -1;
 
-    struct epoll_event client_event;
+  struct epoll_event client_event;
 
-    client_event.events = EPOLLIN;
-    client_event.data.fd = new_fd;
-    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &client_event);
+  client_event.events = EPOLLIN;
+  client_event.data.fd = new_fd;
+  epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &client_event);
 
-    return new_fd;
+  return new_fd;
 }
 
 int handleipcevent(int fd, struct epoll_event *ev)
 {
-    if (ev->events & EPOLLHUP) {
-        struct epoll_event client_event;
+  if (ev->events & EPOLLHUP) {
+    struct epoll_event client_event;
 
-        fprintf(stderr, "EPOLLHUP received from client at fd %d\n", fd);
-        ipc_remove_client(fd);
-        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &client_event);
-    } else if (ev->events & EPOLLIN) {
-        fprintf(stderr, "Received message from fd %d\n", fd);
-        ipc_read_client(fd);
-    } else {
-        fprintf(stderr, "Epoll event returned %d from fd %d\n", ev->events, fd);
-        exit(1);
-    }
+    fprintf(stderr, "EPOLLHUP received from client at fd %d\n", fd);
+    ipc_remove_client(fd);
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &client_event);
+  } else if (ev->events & EPOLLIN) {
+    fprintf(stderr, "Received message from fd %d\n", fd);
+    ipc_read_client(fd);
+  } else {
+    fprintf(stderr, "Epoll event returned %d from fd %d\n", ev->events, fd);
+    exit(1);
+  }
 
-    return 0;
+  return 0;
 }
 
 void
@@ -1442,29 +1442,31 @@ restack(Monitor *m)
 void
 run(void)
 {
-    int event_count = 0;
-    const int MAX_EVENTS = 10;
-    struct epoll_event events[MAX_EVENTS];
+  int event_count = 0;
+  const int MAX_EVENTS = 10;
+  struct epoll_event events[MAX_EVENTS];
 
-	/* main event loop */
-	XSync(dpy, False);
-    while (running) {
-        event_count = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+  XSync(dpy, False);
 
-        for (int i = 0; i < event_count; i++) {
-            int event_fd = events[i].data.fd;
-            fprintf(stderr, "Got event from fd %d\n", event_fd);
+  /* main event loop */
+  while (running) {
+    event_count = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
 
-            if (event_fd == dpy_fd) {
-                // -1 means EPOLLHUP
-                if (handlexevent(events + i) == -1) return;
-            } else if (event_fd == sock_fd) {
-                handlesockevent(events + i);
-            } else {
-                handleipcevent(event_fd, events + i);
-            }
-        }
+    for (int i = 0; i < event_count; i++) {
+      int event_fd = events[i].data.fd;
+      fprintf(stderr, "Got event from fd %d\n", event_fd);
+
+      if (event_fd == dpy_fd) {
+        // -1 means EPOLLHUP
+        if (handlexevent(events + i) == -1)
+          return;
+      } else if (event_fd == sock_fd) {
+        handlesockevent(events + i);
+      } else {
+        handleipcevent(event_fd, events + i);
+      }
     }
+  }
 }
 
 void
@@ -1680,37 +1682,37 @@ setup(void)
 	XSelectInput(dpy, root, wa.event_mask);
 	grabkeys();
 	focus(NULL);
-    setupepoll();
+  setupepoll();
 }
 
 void
 setupepoll(void)
 {
-    sock_fd = create_socket(DWM_SOCKET_PATH);
+  sock_fd = create_socket(DWM_SOCKET_PATH);
 
-    epoll_fd = epoll_create1(0);
-    dpy_fd = ConnectionNumber(dpy);
-    struct epoll_event dpy_event, sock_event;
+  epoll_fd = epoll_create1(0);
+  dpy_fd = ConnectionNumber(dpy);
+  struct epoll_event dpy_event, sock_event;
 
-    fprintf(stderr, "Display socket is fd %d\n", dpy_fd);
+  fprintf(stderr, "Display socket is fd %d\n", dpy_fd);
 
-    if (epoll_fd == -1) {
-        fputs("Failed to create epoll file descriptor", stderr);
-    }
+  if (epoll_fd == -1) {
+    fputs("Failed to create epoll file descriptor", stderr);
+  }
 
-    dpy_event.events = EPOLLIN;
-    dpy_event.data.fd = dpy_fd;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, dpy_fd, &dpy_event)) {
-      fputs("Failed to add display file descriptor to epoll", stderr);
-      close(epoll_fd);
-      exit(1);
-    }
+  dpy_event.events = EPOLLIN;
+  dpy_event.data.fd = dpy_fd;
+  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, dpy_fd, &dpy_event)) {
+    fputs("Failed to add display file descriptor to epoll", stderr);
+    close(epoll_fd);
+    exit(1);
+  }
 
-    sock_event.events = EPOLLIN;
-    sock_event.data.fd = sock_fd;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock_fd, &sock_event)) {
-        fputs("Failed to add sock file descripttor to epoll", stderr);
-    }
+  sock_event.events = EPOLLIN;
+  sock_event.data.fd = sock_fd;
+  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock_fd, &sock_event)) {
+    fputs("Failed to add sock file descripttor to epoll", stderr);
+  }
 }
 
 void
