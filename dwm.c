@@ -1024,8 +1024,11 @@ int handleipcevent(int fd, struct epoll_event *ev)
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &client_event);
   } else if (ev->events & EPOLLIN) {
     fprintf(stderr, "Received message from fd %d\n", fd);
+    uint8_t msg_type;
+    uint32_t msg_size;
+    uint8_t *msg;
 
-    int ret = ipc_read_client(fd);
+    int ret = ipc_read_client(fd, &msg_type, &msg_size, &msg);
     if (ret == -1)
       return -1;
     else if (ret == -2) {
@@ -1036,6 +1039,64 @@ int handleipcevent(int fd, struct epoll_event *ev)
       ipc_remove_client(fd);
       epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &client_event);
     }
+
+    if (msg_type == IPC_TYPE_RUN_COMMAND) {
+      int command_num;
+      int argc;
+      Arg** args;
+      if ((command_num = ipc_parse_run_command(msg, &argc, (IPCArg***)&args)) < 0) {
+          // TODO: Send message to client that parsing failed
+          return -1;
+      }
+
+      switch (command_num) {
+        case IPC_COMMAND_TAG:
+          tag(args[0]);
+          break;
+        case IPC_COMMAND_TOGGLE_VIEW:
+          toggleview(args[0]);
+          break;
+        case IPC_COMMAND_TOGGLE_TAG:
+          toggletag(args[0]);
+          break;
+        case IPC_COMMAND_TAG_MONITOR:
+          tagmon(args[0]);
+          break;
+        case IPC_COMMAND_FOCUS_MONITOR:
+          focusmon(args[0]);
+          break;
+        case IPC_COMMAND_KILL_CLIENT:
+          killclient(args[0]);
+          break;
+        case IPC_COMMAND_TOGGLE_FLOATING:
+          killclient(args[0]);
+          break;
+        case IPC_COMMAND_SET_MFACT:
+          setmfact(args[0]);
+          break;
+        case IPC_COMMAND_SET_LAYOUT:
+          setlayout(args[0]);
+          break;
+        case IPC_COMMAND_QUIT:
+          quit(args[0]);
+          break;
+      }
+
+      // Free args
+      for (int i = 0; i < argc; i++) {
+        free(args[i]);
+      }
+      free(args);
+    } else if (msg_type == IPC_TYPE_GET_TAGS) {
+
+    } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
+
+    } else {
+      fprintf(stderr, "Invalid message type received from fd %d", fd);
+    }
+
+    free(msg);
+
   } else {
     fprintf(stderr, "Epoll event returned %d from fd %d\n", ev->events, fd);
     exit(1);

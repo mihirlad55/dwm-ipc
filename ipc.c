@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <yajl/yajl_tree.h>
 
 #include "ipc.h"
 
@@ -162,13 +163,9 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
 }
 
 int
-ipc_read_client(int fd)
+ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size, uint8_t **msg)
 {
-  uint8_t msg_type;
-  uint32_t msg_size;
-  uint8_t *msg = NULL;
-
-  int ret = ipc_recv_message(fd, &msg_type, &msg_size, &msg);
+  int ret = ipc_recv_message(fd, msg_type, msg_size, msg);
 
   if (ret < 0) {
     // Will happen if these errors occur while reading header
@@ -176,15 +173,15 @@ ipc_read_client(int fd)
         (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
       return -2;
 
-    // TODO: Remove client
     return -1;
   }
 
-  fprintf(stderr, "Received message: '%s' ", (char *)msg);
-  fprintf(stderr, "Message type: %" PRIu8 " ", msg_type);
-  fprintf(stderr, "Message size: %" PRIu32 "\n", msg_size);
 
-  free(msg);
+  fprintf(stderr, "[fd %d] ", fd);
+  fprintf(stderr, "Received message: '%s' ", (char *)(*msg));
+  fprintf(stderr, "Message type: %" PRIu8 " ", *msg_type);
+  fprintf(stderr, "Message size: %" PRIu32 "\n", *msg_size);
+
   return 0;
 }
 
@@ -192,6 +189,7 @@ int
 ipc_remove_client(int fd)
 {
   int res = close(fd);
+  // TODO: Remove client from queue
 
   if (res == 0) {
     fprintf(stderr, "Successfully removed client on fd %d\n", fd);
@@ -200,6 +198,110 @@ ipc_remove_client(int fd)
   }
 
   return res;
+}
+
+int
+command_str_to_int(const char* command)
+{
+  int command_num = -1;
+
+  if (strcmp(command, "tag") == 0)
+    command_num = IPC_COMMAND_TAG;
+  else if (strcmp(command, "toggleview") == 0)
+    command_num = IPC_COMMAND_TOGGLE_VIEW;
+  else if (strcmp(command, "toggletag") == 0)
+    command_num = IPC_COMMAND_TOGGLE_TAG;
+  else if (strcmp(command, "tagmon") == 0)
+    command_num = IPC_COMMAND_TAG_MONITOR;
+  else if (strcmp(command, "focusmon") == 0)
+    command_num = IPC_COMMAND_FOCUS_MONITOR;
+  else if (strcmp(command, "killclient") == 0)
+    command_num = IPC_COMMAND_KILL_CLIENT;
+  else if (strcmp(command, "togglefloating") == 0)
+    command_num = IPC_COMMAND_TOGGLE_FLOATING;
+  else if (strcmp(command, "setmfact") == 0)
+    command_num = IPC_COMMAND_SET_MFACT;
+  else if (strcmp(command, "setlayout") == 0)
+    command_num = IPC_COMMAND_SET_LAYOUT;
+  else if (strcmp(command, "quit") == 0)
+    command_num = IPC_COMMAND_QUIT;
+
+  return command_num;
+}
+
+int
+ipc_parse_run_command(const uint8_t *msg, int *argc, IPCArg **args[])
+{
+  char error_buffer[100];
+  yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
+
+  if (parent == NULL) {
+    fputs("Failed to parse command from client\n", stderr);
+    fprintf(stderr, "%s\n", error_buffer);
+    return -1;
+  }
+
+  // Format:
+  // {
+  //   "command": "<command name>"
+  //   "args": [ "arg1", "arg2" ]
+  // }
+  const char *command_path[] = {"command", 0};
+  yajl_val command_val = yajl_tree_get(parent, command_path, yajl_t_string);
+
+  if (command_val == NULL) {
+    fputs("No command key found in client message\n", stderr);
+    return -1;
+  }
+
+  const char* command = YAJL_GET_STRING(command_val);
+  fprintf(stderr, "Received command: %s\n", command);
+
+  int command_num;
+  if ((command_num = command_str_to_int(command)) < 0)
+      return -1;
+
+  const char *args_path[] = {"args", 0};
+  yajl_val args_val = yajl_tree_get(parent, args_path, yajl_t_array);
+
+  if (args_val == NULL) {
+    fputs("No args key found in client message\n", stderr);
+    return -1;
+  }
+
+  *argc = args_val->u.array.len;
+
+  *args = (IPCArg**)(malloc(sizeof(IPCArg*) * (*argc)));
+
+  for (int i = 0; i < *argc; i++) {
+    yajl_val arg_val = args_val->u.array.values[i];
+
+    (*args)[i] = (IPCArg*)malloc(sizeof(IPCArg));
+
+    if (YAJL_IS_NUMBER(arg_val)) {
+      if (YAJL_IS_INTEGER(arg_val)) {
+        if (YAJL_GET_INTEGER(arg_val) < 0) {
+          (*args)[i]->i = YAJL_GET_INTEGER(arg_val);
+          fprintf(stderr, "i=%d\n", (*args)[i]->i);
+        } else {
+          (*args)[i]->ui = YAJL_GET_INTEGER(arg_val);
+          fprintf(stderr, "ui=%d\n", (*args)[i]->i);
+        }
+      } else {
+        (*args)[i]->f = (float)YAJL_GET_DOUBLE(arg_val);
+        fprintf(stderr, "f=%f\n", (*args)[i]->f);
+      }
+    } else if (YAJL_IS_STRING(arg_val)) {
+      char* arg_s = YAJL_GET_STRING(arg_val);
+      size_t arg_s_size = (strlen(arg_s) + 1) * sizeof(char);
+      (*args)[i]->v = (void*)malloc(arg_s_size);
+      strcpy((char*)(*args)[i], arg_s);
+    }
+  }
+
+  yajl_tree_free(parent);
+
+  return command_num;
 }
 
 // TODO: Cleanup socket
