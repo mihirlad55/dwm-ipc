@@ -1024,7 +1024,18 @@ int handleipcevent(int fd, struct epoll_event *ev)
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &client_event);
   } else if (ev->events & EPOLLIN) {
     fprintf(stderr, "Received message from fd %d\n", fd);
-    ipc_read_client(fd);
+
+    int ret = ipc_read_client(fd);
+    if (ret == -1)
+      return -1;
+    else if (ret == -2) {
+      struct epoll_event client_event;
+
+      fprintf(stderr, "Closing connection with client at fd %d ", fd);
+      fprintf(stderr, " due to error reading message\n");
+      ipc_remove_client(fd);
+      epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &client_event);
+    }
   } else {
     fprintf(stderr, "Epoll event returned %d from fd %d\n", ev->events, fd);
     exit(1);
