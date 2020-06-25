@@ -1045,31 +1045,52 @@ int handleipcevent(int fd, struct epoll_event *ev)
       int argc;
       Arg** args;
       if ((command_num = ipc_parse_run_command(msg, &argc, (IPCArg***)&args)) < 0) {
-          // TODO: Send message to client that parsing failed
-          return -1;
+        // TODO: Send message to client that parsing failed
+        return -1;
       }
 
+     // TODO: Implement additional args for specifying client
+     // TODO: Add argument safety checking
       switch (command_num) {
-        case IPC_COMMAND_TAG:
-          tag(args[0]);
+        case IPC_COMMAND_VIEW:
+          view(args[0]);
           break;
         case IPC_COMMAND_TOGGLE_VIEW:
           toggleview(args[0]);
+          break;
+        case IPC_COMMAND_TAG:
+          tag(args[0]);
           break;
         case IPC_COMMAND_TOGGLE_TAG:
           toggletag(args[0]);
           break;
         case IPC_COMMAND_TAG_MONITOR:
+          args[0]->i = (args[0]->ui != 0 ? args[0]->ui : args[0]->i);
           tagmon(args[0]);
           break;
         case IPC_COMMAND_FOCUS_MONITOR:
+          args[0]->i = (args[0]->ui != 0 ? args[0]->ui : args[0]->i);
           focusmon(args[0]);
+          break;
+        case IPC_COMMAND_FOCUS_STACK:
+          args[0]->i = (args[0]->ui != 0 ? args[0]->ui : args[0]->i);
+          focusstack(args[0]);
+          break;
+        case IPC_COMMAND_ZOOM:
+          zoom(args[0]);
+          break;
+        case IPC_COMMAND_SPAWN:
+          spawn(args[0]);
+          break;
+        case IPC_COMMAND_INC_NMASTER:
+          args[0]->i = (args[0]->ui != 0 ? args[0]->ui : args[0]->i);
+          incnmaster(args[0]);
           break;
         case IPC_COMMAND_KILL_CLIENT:
           killclient(args[0]);
           break;
         case IPC_COMMAND_TOGGLE_FLOATING:
-          killclient(args[0]);
+          togglefloating(args[0]);
           break;
         case IPC_COMMAND_SET_MFACT:
           setmfact(args[0]);

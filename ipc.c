@@ -205,16 +205,26 @@ command_str_to_int(const char* command)
 {
   int command_num = -1;
 
-  if (strcmp(command, "tag") == 0)
-    command_num = IPC_COMMAND_TAG;
+  if (strcmp(command, "view") == 0)
+    command_num = IPC_COMMAND_VIEW;
   else if (strcmp(command, "toggleview") == 0)
     command_num = IPC_COMMAND_TOGGLE_VIEW;
+  else if (strcmp(command, "tag") == 0)
+    command_num = IPC_COMMAND_TAG;
   else if (strcmp(command, "toggletag") == 0)
     command_num = IPC_COMMAND_TOGGLE_TAG;
   else if (strcmp(command, "tagmon") == 0)
     command_num = IPC_COMMAND_TAG_MONITOR;
   else if (strcmp(command, "focusmon") == 0)
     command_num = IPC_COMMAND_FOCUS_MONITOR;
+  else if (strcmp(command, "focusstack") == 0)
+    command_num = IPC_COMMAND_FOCUS_STACK;
+  else if (strcmp(command, "zoom") == 0)
+    command_num = IPC_COMMAND_ZOOM;
+  else if (strcmp(command, "spawn") == 0)
+    command_num = IPC_COMMAND_SPAWN;
+  else if (strcmp(command, "incnmaster") == 0)
+    command_num = IPC_COMMAND_INC_NMASTER;
   else if (strcmp(command, "killclient") == 0)
     command_num = IPC_COMMAND_KILL_CLIENT;
   else if (strcmp(command, "togglefloating") == 0)
