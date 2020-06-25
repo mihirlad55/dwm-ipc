@@ -271,31 +271,38 @@ ipc_parse_run_command(const uint8_t *msg, int *argc, IPCArg **args[])
 
   *argc = args_val->u.array.len;
 
-  *args = (IPCArg**)(malloc(sizeof(IPCArg*) * (*argc)));
+  if (*argc == 0) {
+    *args = (IPCArg**)(malloc(sizeof(IPCArg*)));
+    (*args)[0] = (IPCArg*)(malloc(sizeof(IPCArg)));
+    (*args)[0]->f = 0;
+    argc++;
+  } else if (*argc > 0) {
+    *args = (IPCArg**)(malloc(sizeof(IPCArg*) * (*argc)));
 
-  for (int i = 0; i < *argc; i++) {
-    yajl_val arg_val = args_val->u.array.values[i];
+    for (int i = 0; i < *argc; i++) {
+      yajl_val arg_val = args_val->u.array.values[i];
 
-    (*args)[i] = (IPCArg*)malloc(sizeof(IPCArg));
+      (*args)[i] = (IPCArg*)malloc(sizeof(IPCArg));
 
-    if (YAJL_IS_NUMBER(arg_val)) {
-      if (YAJL_IS_INTEGER(arg_val)) {
-        if (YAJL_GET_INTEGER(arg_val) < 0) {
-          (*args)[i]->i = YAJL_GET_INTEGER(arg_val);
-          fprintf(stderr, "i=%d\n", (*args)[i]->i);
+      if (YAJL_IS_NUMBER(arg_val)) {
+        if (YAJL_IS_INTEGER(arg_val)) {
+          if (YAJL_GET_INTEGER(arg_val) < 0) {
+            (*args)[i]->i = YAJL_GET_INTEGER(arg_val);
+            fprintf(stderr, "i=%d\n", (*args)[i]->i);
+          } else {
+            (*args)[i]->ui = YAJL_GET_INTEGER(arg_val);
+            fprintf(stderr, "ui=%d\n", (*args)[i]->i);
+          }
         } else {
-          (*args)[i]->ui = YAJL_GET_INTEGER(arg_val);
-          fprintf(stderr, "ui=%d\n", (*args)[i]->i);
+          (*args)[i]->f = (float)YAJL_GET_DOUBLE(arg_val);
+          fprintf(stderr, "f=%f\n", (*args)[i]->f);
         }
-      } else {
-        (*args)[i]->f = (float)YAJL_GET_DOUBLE(arg_val);
-        fprintf(stderr, "f=%f\n", (*args)[i]->f);
+      } else if (YAJL_IS_STRING(arg_val)) {
+        char* arg_s = YAJL_GET_STRING(arg_val);
+        size_t arg_s_size = (strlen(arg_s) + 1) * sizeof(char);
+        (*args)[i]->v = (void*)malloc(arg_s_size);
+        strcpy((char*)(*args)[i], arg_s);
       }
-    } else if (YAJL_IS_STRING(arg_val)) {
-      char* arg_s = YAJL_GET_STRING(arg_val);
-      size_t arg_s_size = (strlen(arg_s) + 1) * sizeof(char);
-      (*args)[i]->v = (void*)malloc(arg_s_size);
-      strcpy((char*)(*args)[i], arg_s);
     }
   }
 
