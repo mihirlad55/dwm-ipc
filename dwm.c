@@ -1059,7 +1059,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
         free(args[i]);
       }
       free(args);
-    } else if (msg_type == IPC_TYPE_GET_TAGS) {
+    } else if (msg_type == IPC_TYPE_GET_MONITORS) {
 
     } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
 

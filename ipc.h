@@ -9,7 +9,7 @@
 
 enum {
     IPC_TYPE_RUN_COMMAND = 0,
-    IPC_TYPE_GET_TAGS = 1,
+    IPC_TYPE_GET_MONITORS = 1,
     IPC_TYPE_SUBSCRIBE = 2
 };
 
