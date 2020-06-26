@@ -971,7 +971,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
     struct epoll_event client_event;
 
     fprintf(stderr, "EPOLLHUP received from client at fd %d\n", fd);
-    ipc_remove_client(fd);
+    ipc_drop_client(fd);
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &client_event);
   } else if (ev->events & EPOLLIN) {
     fprintf(stderr, "Received message from fd %d\n", fd);
@@ -987,7 +987,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
 
       fprintf(stderr, "Closing connection with client at fd %d ", fd);
       fprintf(stderr, " due to error reading message\n");
-      ipc_remove_client(fd);
+      ipc_drop_client(fd);
       epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &client_event);
     }
 
@@ -1732,7 +1732,7 @@ setup(void)
 void
 setupepoll(void)
 {
-  sock_fd = create_socket(DWM_SOCKET_PATH);
+  sock_fd = ipc_create_socket(DWM_SOCKET_PATH);
 
   epoll_fd = epoll_create1(0);
   dpy_fd = ConnectionNumber(dpy);

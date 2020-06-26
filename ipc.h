@@ -50,7 +50,7 @@ struct ipc_client {
 };
 
 
-int create_socket(const char *filename);
+int ipc_create_socket(const char *filename);
 
 int ipc_register_client(int fd);
 
@@ -63,9 +63,9 @@ int ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size,
 int ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
                      uint8_t **msg);
 
-int ipc_remove_client(int fd);
+int ipc_drop_client(int fd);
 
-int command_str_to_int(const char *command);
+int ipc_command_str_to_int(const char *command);
 
 int ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[]);
 

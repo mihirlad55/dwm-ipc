@@ -11,7 +11,7 @@
 #include "ipc.h"
 
 int
-create_socket(const char *filename)
+ipc_create_socket(const char *filename)
 {
   fputs("In create socket function\n", stderr);
   struct sockaddr_un addr;
@@ -186,7 +186,7 @@ ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size, uint8_t **msg)
 }
 
 int
-ipc_remove_client(int fd)
+ipc_drop_client(int fd)
 {
   int res = close(fd);
   // TODO: Remove client from queue
@@ -201,7 +201,7 @@ ipc_remove_client(int fd)
 }
 
 int
-command_str_to_int(const char* command)
+ipc_command_str_to_int(const char* command)
 {
   int command_num = -1;
 
@@ -268,7 +268,7 @@ ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[])
   fprintf(stderr, "Received command: %s\n", command);
 
   int command_num;
-  if ((command_num = command_str_to_int(command)) < 0)
+  if ((command_num = ipc_command_str_to_int(command)) < 0)
       return -1;
 
   const char *args_path[] = {"args", 0};
