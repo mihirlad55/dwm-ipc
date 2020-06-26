@@ -2,6 +2,7 @@
 #define IPC_H_
 
 #include <stdint.h>
+#include "types.h"
 
 #define IPC_MAGIC "DWM-IPC"
 #define IPC_MAGIC_LEN 7 // Not including null char
@@ -50,13 +51,6 @@ struct ipc_client {
   uint32_t buffer_size;
 };
 
-typedef union {
-	int i;
-	unsigned int ui;
-	float f;
-	const void *v;
-} IPCArg;
-
 
 int create_socket(const char *filename);
 
@@ -75,6 +69,6 @@ int ipc_remove_client(int fd);
 
 int command_str_to_int(const char* command);
 
-int ipc_parse_run_command(const uint8_t *msg, int *argc, IPCArg **args[]);
+int ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[]);
 
 #endif /* IPC_H_ */

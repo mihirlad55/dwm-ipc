@@ -240,7 +240,7 @@ command_str_to_int(const char* command)
 }
 
 int
-ipc_parse_run_command(const uint8_t *msg, int *argc, IPCArg **args[])
+ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[])
 {
   char error_buffer[100];
   yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
@@ -282,17 +282,17 @@ ipc_parse_run_command(const uint8_t *msg, int *argc, IPCArg **args[])
   *argc = args_val->u.array.len;
 
   if (*argc == 0) {
-    *args = (IPCArg**)(malloc(sizeof(IPCArg*)));
-    (*args)[0] = (IPCArg*)(malloc(sizeof(IPCArg)));
+    *args = (Arg**)(malloc(sizeof(Arg*)));
+    (*args)[0] = (Arg*)(malloc(sizeof(Arg)));
     (*args)[0]->f = 0;
     argc++;
   } else if (*argc > 0) {
-    *args = (IPCArg**)(malloc(sizeof(IPCArg*) * (*argc)));
+    *args = (Arg**)(malloc(sizeof(Arg*) * (*argc)));
 
     for (int i = 0; i < *argc; i++) {
       yajl_val arg_val = args_val->u.array.values[i];
 
-      (*args)[i] = (IPCArg*)malloc(sizeof(IPCArg));
+      (*args)[i] = (Arg*)malloc(sizeof(Arg));
 
       if (YAJL_IS_NUMBER(arg_val)) {
         if (YAJL_IS_INTEGER(arg_val)) {

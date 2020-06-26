@@ -42,6 +42,7 @@
 #endif /* XINERAMA */
 #include <X11/Xft/Xft.h>
 
+#include "types.h"
 #include "drw.h"
 #include "util.h"
 #include "ipc.h"
@@ -68,13 +69,6 @@ enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
 enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
-
-typedef union {
-	int i;
-	unsigned int ui;
-	float f;
-	const void *v;
-} Arg;
 
 typedef struct {
 	unsigned int click;
@@ -502,9 +496,9 @@ cleanup(void)
 	XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
 	XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
 
-    if (close(epoll_fd)) {
-        fprintf(stderr, "Failed to close epoll file descriptor\n");
-    }
+  if (close(epoll_fd)) {
+      fprintf(stderr, "Failed to close epoll file descriptor\n");
+  }
 }
 
 void
@@ -1044,7 +1038,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
       int command_num;
       int argc;
       Arg** args;
-      if ((command_num = ipc_parse_run_command(msg, &argc, (IPCArg***)&args)) < 0) {
+      if ((command_num = ipc_parse_run_command(msg, &argc, &args)) < 0) {
         // TODO: Send message to client that parsing failed
         return -1;
       }
