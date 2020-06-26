@@ -86,7 +86,7 @@ ipc_accept_client(int sock_fd, struct epoll_event *event)
   return fd;
 }
 
-int
+static int
 ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
                      uint8_t **reply)
 {

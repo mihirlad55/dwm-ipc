@@ -59,10 +59,6 @@ int ipc_accept_client(int sock_fd, struct epoll_event *event);
 int ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size,
                     uint8_t **msg);
 
-// Free msg if successful return of 0
-int ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
-                     uint8_t **msg);
-
 int ipc_drop_client(int fd);
 
 int ipc_command_str_to_int(const char *command);
