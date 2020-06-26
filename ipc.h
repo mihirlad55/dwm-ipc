@@ -41,16 +41,21 @@ typedef struct dwm_ipc_header {
   uint8_t type;
 } __attribute((packed)) dwm_ipc_header_t;
 
-struct ipc_client {
+typedef struct IPCClient IPCClient;
+struct IPCClient {
   int fd;
   int subscriptions;
 
   char *buffer;
   uint32_t buffer_size;
+
+  IPCClient *next;
+  IPCClient *prev;
 };
 
-
 int ipc_create_socket(const char *filename);
+
+IPCClient *ipc_list_get_client(int fd);
 
 int ipc_register_client(int fd);
 

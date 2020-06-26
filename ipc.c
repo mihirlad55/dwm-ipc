@@ -10,80 +10,49 @@
 
 #include "ipc.h"
 
-int
-ipc_create_socket(const char *filename)
+static IPCClient *ipc_client_head;
+
+static IPCClient*
+ipc_init_client(int fd)
 {
-  fputs("In create socket function\n", stderr);
-  struct sockaddr_un addr;
-  const size_t addr_size = sizeof(struct sockaddr_un);
-  const int sock_type = SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
+  IPCClient* c = (IPCClient*)malloc(sizeof(IPCClient));
 
-  // In case socket file exists
-  unlink(filename);
+  if (c == NULL) return NULL;
 
-  // For portability clear the addr structure, since some implementations have
-  // nonstandard fields in the structure
-  memset(&addr, 0, addr_size);
+  c->buffer_size = 0;
+  c->buffer = NULL;
+  c->fd = fd;
+  c->next = NULL;
+  c->prev = NULL;
+  c->subscriptions = 0;
 
-  // TODO: Make parent directories to file
-  // TODO: Resolve tilde
-
-  addr.sun_family = AF_LOCAL;
-  strcpy(addr.sun_path, filename);
-
-  const int sock_fd = socket(AF_LOCAL, sock_type, 0);
-  if (sock_fd == -1) {
-    fputs("Failed to create socket\n", stderr);
-    return -1;
-  }
-
-  if (bind(sock_fd, (const struct sockaddr *)&addr, addr_size) == -1) {
-    fputs("Failed to bind socket\n", stderr);
-    return -1;
-  }
-
-  if (listen(sock_fd, 5) < 0) {
-    fputs("Failed to listen for connections on socket\n", stderr);
-    return -1;
-  }
-
-  return sock_fd;
+  return c;
 }
 
-int
-ipc_register_client(int fd)
+static void
+ipc_list_add_client(IPCClient *nc)
 {
-  fprintf(stderr, "%s%d\n", "New client at fd: ", fd);
-
-  return 0;
+  if (ipc_client_head == NULL) {
+    ipc_client_head = nc;
+  } else {
+    IPCClient *c;
+    for (c = ipc_client_head; c && c->next; c = c->next);
+    c->next = nc;
+    nc->prev = c;
+  }
 }
 
-int
-ipc_accept_client(int sock_fd, struct epoll_event *event)
+static void
+ipc_list_remove_client(IPCClient *c)
 {
-  fputs("In accept client function\n", stderr);
-  int fd = -1;
+  for (c = ipc_client_head; c && c->next; c = c->next);
 
-  if (event->events & EPOLLIN) {
-    struct sockaddr_un client_addr;
-    socklen_t len;
+  IPCClient *cprev = c->prev;
+  IPCClient *cnext = c->next;
 
-    // For portability clear the addr structure, since some implementations
-    // have nonstandard fields in the structure
-    memset(&client_addr, 0, sizeof(struct sockaddr_un));
-
-    fd = accept(sock_fd, (struct sockaddr *)&client_addr, &len);
-    if (fd < 0) {
-      if (errno != EINTR) {
-        fputs("Failed to accept IPC connection from client", stderr);
-        return -1;
-      }
-    }
-
-    ipc_register_client(fd);
-  }
-
-  return fd;
+  if (cprev != NULL) cprev->next = c->next;
+  if (cnext != NULL) cnext->prev = c->prev;
+  if (c == ipc_client_head) ipc_client_head = c->next;
 }
 
 static int
@@ -163,6 +132,98 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
 }
 
 int
+ipc_create_socket(const char *filename)
+{
+  fputs("In create socket function\n", stderr);
+  struct sockaddr_un addr;
+  const size_t addr_size = sizeof(struct sockaddr_un);
+  const int sock_type = SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
+
+  // In case socket file exists
+  unlink(filename);
+
+  // For portability clear the addr structure, since some implementations have
+  // nonstandard fields in the structure
+  memset(&addr, 0, addr_size);
+
+  // TODO: Make parent directories to file
+  // TODO: Resolve tilde
+
+  addr.sun_family = AF_LOCAL;
+  strcpy(addr.sun_path, filename);
+
+  const int sock_fd = socket(AF_LOCAL, sock_type, 0);
+  if (sock_fd == -1) {
+    fputs("Failed to create socket\n", stderr);
+    return -1;
+  }
+
+  if (bind(sock_fd, (const struct sockaddr *)&addr, addr_size) == -1) {
+    fputs("Failed to bind socket\n", stderr);
+    return -1;
+  }
+
+  if (listen(sock_fd, 5) < 0) {
+    fputs("Failed to listen for connections on socket\n", stderr);
+    return -1;
+  }
+
+  return sock_fd;
+}
+
+IPCClient*
+ipc_list_get_client(int fd)
+{
+  IPCClient *c;
+  for (c = ipc_client_head; c && c->next; c = c->next)
+    if (c->fd == fd) return c;
+
+  return NULL;
+}
+
+int
+ipc_register_client(int fd)
+{
+  IPCClient *nc = ipc_init_client(fd);
+
+  if (nc == NULL) return -1;
+
+  ipc_list_add_client(nc);
+
+  fprintf(stderr, "%s%d\n", "New client at fd: ", fd);
+
+  return 0;
+}
+
+int
+ipc_accept_client(int sock_fd, struct epoll_event *event)
+{
+  fputs("In accept client function\n", stderr);
+  int fd = -1;
+
+  if (event->events & EPOLLIN) {
+    struct sockaddr_un client_addr;
+    socklen_t len;
+
+    // For portability clear the addr structure, since some implementations
+    // have nonstandard fields in the structure
+    memset(&client_addr, 0, sizeof(struct sockaddr_un));
+
+    fd = accept(sock_fd, (struct sockaddr *)&client_addr, &len);
+    if (fd < 0) {
+      if (errno != EINTR) {
+        fputs("Failed to accept IPC connection from client", stderr);
+        return -1;
+      }
+    }
+
+    ipc_register_client(fd);
+  }
+
+  return fd;
+}
+
+int
 ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size, uint8_t **msg)
 {
   int ret = ipc_recv_message(fd, msg_type, msg_size, msg);
@@ -188,8 +249,12 @@ ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size, uint8_t **msg)
 int
 ipc_drop_client(int fd)
 {
+  IPCClient *c = ipc_list_get_client(fd);
+  ipc_list_remove_client(c);
+
+  free(c);
+
   int res = close(fd);
-  // TODO: Remove client from queue
 
   if (res == 0) {
     fprintf(stderr, "Successfully removed client on fd %d\n", fd);
@@ -320,5 +385,6 @@ ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[])
 
   return command_num;
 }
+
 
 // TODO: Cleanup socket
