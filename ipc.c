@@ -317,10 +317,8 @@ ipc_create_socket(const char *filename)
 IPCClient*
 ipc_list_get_client(int fd)
 {
-  IPCClient *c = ipc_client_head;
-  while (c) {
+  for (IPCClient *c = ipc_client_head; c; c = c->next) {
     if (c->fd == fd) return c;
-    c = c->next;
   }
 
   return NULL;
