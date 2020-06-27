@@ -9,6 +9,7 @@
 #define IPC_MAGIC_ARR { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
 #define IPC_MAGIC_LEN 7 // Not including null char
 
+#define ystr(str) yajl_gen_string(gen, (unsigned char *)str, strlen(str))
 
 enum {
   IPC_TYPE_RUN_COMMAND = 0,
@@ -75,5 +76,7 @@ void ipc_prepare_send_message(IPCClient *c, uint8_t msg_type, uint32_t msg_size,
     uint8_t *msg);
 
 int ipc_push_pending(IPCClient *c);
+
+int ipc_get_monitors(Monitor *selmon, unsigned char **buffer, size_t *len);
 
 #endif /* IPC_H_ */

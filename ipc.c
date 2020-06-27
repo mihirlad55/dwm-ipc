@@ -7,6 +7,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <yajl/yajl_tree.h>
+#include <yajl/yajl_gen.h>
 
 #include "ipc.h"
 
@@ -156,6 +157,122 @@ ipc_write_message(int fd, const void *buf, size_t count)
   return written;
 }
 
+static int
+dump_client(yajl_gen gen, Client *c)
+{
+  yajl_gen_map_open(gen);
+
+  ystr("name"); ystr(c->name);
+  ystr("mina"); yajl_gen_double(gen, c->mina);
+  ystr("maxa"); yajl_gen_double(gen, c->maxa);
+  ystr("tags"); yajl_gen_integer(gen, c->tags);
+  ystr("window_id"); yajl_gen_integer(gen, c->win);
+
+  ystr("size");
+  yajl_gen_map_open(gen);
+  ystr("x"); yajl_gen_integer(gen, c->x);
+  ystr("y"); yajl_gen_integer(gen, c->y);
+  ystr("width"); yajl_gen_integer(gen, c->w);
+  ystr("height"); yajl_gen_integer(gen, c->h);
+  yajl_gen_map_close(gen);
+
+  ystr("old_size");
+  yajl_gen_map_open(gen);
+  ystr("x"); yajl_gen_integer(gen, c->oldx);
+  ystr("y"); yajl_gen_integer(gen, c->oldy);
+  ystr("width"); yajl_gen_integer(gen, c->oldw);
+  ystr("height"); yajl_gen_integer(gen, c->oldh);
+  yajl_gen_map_close(gen);
+
+  ystr("size_hints");
+  yajl_gen_map_open(gen);
+  ystr("base_width"); yajl_gen_integer(gen, c->basew);
+  ystr("base_height"); yajl_gen_integer(gen, c->baseh);
+  ystr("increase_width"); yajl_gen_integer(gen, c->incw);
+  ystr("increase_height"); yajl_gen_integer(gen, c->inch);
+  ystr("max_width"); yajl_gen_integer(gen, c->maxw);
+  ystr("max_height"); yajl_gen_integer(gen, c->maxh);
+  ystr("min_width"); yajl_gen_integer(gen, c->minw);
+  ystr("min_height"); yajl_gen_integer(gen, c->minh);
+  yajl_gen_map_close(gen);
+
+  ystr("border");
+  yajl_gen_map_open(gen);
+  ystr("border_width"); yajl_gen_integer(gen, c->bw);
+  ystr("old_border_width"); yajl_gen_integer(gen, c->oldbw);
+  yajl_gen_map_close(gen);
+
+  ystr("states");
+  yajl_gen_map_open(gen);
+  ystr("is_fixed"); yajl_gen_bool(gen, c->isfixed);
+  ystr("is_floating"); yajl_gen_bool(gen, c->isfloating);
+  ystr("is_urgent"); yajl_gen_bool(gen, c->isurgent);
+  ystr("is_fullscreen"); yajl_gen_bool(gen, c->isfullscreen);
+  ystr("never_focus"); yajl_gen_bool(gen, c->neverfocus);
+  ystr("old_state"); yajl_gen_bool(gen, c->oldstate);
+  yajl_gen_map_close(gen);
+
+  yajl_gen_map_close(gen);
+
+  return 0;
+}
+
+static int
+dump_monitor(yajl_gen gen, Monitor *mon)
+{
+  yajl_gen_map_open(gen);
+
+  ystr("layout_symbol"); ystr(mon->ltsymbol);
+  ystr("mfact"); yajl_gen_double(gen, mon->mfact);
+  ystr("nmaster"); yajl_gen_integer(gen, mon->nmaster);
+  ystr("num"); yajl_gen_integer(gen, mon->num);
+  ystr("bar_y"); yajl_gen_integer(gen, mon->by);
+  ystr("selected_tags"); yajl_gen_integer(gen, mon->seltags);
+  ystr("selected_layout"); yajl_gen_integer(gen, mon->sellt);
+  ystr("show_bar"); yajl_gen_bool(gen, mon->showbar);
+  ystr("top_bar"); yajl_gen_bool(gen, mon->topbar);
+
+  ystr("screen");
+  yajl_gen_map_open(gen);
+  ystr("x"); yajl_gen_integer(gen, mon->mx);
+  ystr("y"); yajl_gen_integer(gen, mon->my);
+  ystr("width"); yajl_gen_integer(gen, mon->mw);
+  ystr("height"); yajl_gen_integer(gen, mon->mh);
+  yajl_gen_map_close(gen);
+
+  ystr("window");
+  yajl_gen_map_open(gen);
+  ystr("x"); yajl_gen_integer(gen, mon->wx);
+  ystr("y"); yajl_gen_integer(gen, mon->wy);
+  ystr("width"); yajl_gen_integer(gen, mon->ww);
+  ystr("height"); yajl_gen_integer(gen, mon->wh);
+  yajl_gen_map_close(gen);
+
+  ystr("tag_set");
+  yajl_gen_array_open(gen);
+  yajl_gen_integer(gen, mon->tagset[0]);
+  yajl_gen_integer(gen, mon->tagset[1]);
+  yajl_gen_array_close(gen);
+
+  ystr("Layouts");
+  yajl_gen_array_open(gen);
+  ystr(mon->lt[0]->symbol);
+  ystr(mon->lt[1]->symbol);
+  yajl_gen_array_close(gen);
+
+  ystr("selected_client");
+  dump_client(gen, mon->sel);
+
+  ystr("stack");
+  yajl_gen_array_open(gen);
+  for (Client* c = mon->clients; c; c = c->snext)
+    dump_client(gen, c);
+  yajl_gen_array_close(gen);
+
+  yajl_gen_map_close(gen);
+
+  return 0;
+}
 
 int
 ipc_create_socket(const char *filename)
@@ -459,6 +576,33 @@ ipc_push_pending(IPCClient *c)
 
   return n;
 }
+
+int
+ipc_get_monitors(Monitor *selmon, unsigned char **buffer, size_t *len)
+{
+  const unsigned char *temp_buffer;
+
+  yajl_gen gen = yajl_gen_alloc(NULL);
+  yajl_gen_config(gen, yajl_gen_beautify, 1);
+
+  yajl_gen_array_open(gen);
+
+  for (Monitor *mon = selmon; mon; mon = mon->next)
+    dump_monitor(gen, mon);
+
+  yajl_gen_array_close(gen);
+
+  yajl_gen_get_buf(gen, &temp_buffer, len);
+
+  *buffer = (unsigned char*)malloc(sizeof(unsigned char*) * (*len));
+  memmove(*buffer, temp_buffer, *len);
+
+  // Not documented, but this frees temp_buffer
+  yajl_gen_free(gen);
+
+  return 0;
+}
+
 
 
 // TODO: Cleanup socket

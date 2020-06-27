@@ -994,6 +994,8 @@ int handleipcevent(int fd, struct epoll_event *ev)
       epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &client_event);
     }
 
+    IPCClient *c = ipc_list_get_client(fd);
+
     if (msg_type == IPC_TYPE_RUN_COMMAND) {
       int command_num;
       int argc;
@@ -1063,7 +1065,17 @@ int handleipcevent(int fd, struct epoll_event *ev)
       }
       free(args);
     } else if (msg_type == IPC_TYPE_GET_MONITORS) {
+      unsigned char *buffer;
+      size_t len;
+      struct epoll_event ev;
 
+      ipc_get_monitors(selmon, &buffer, &len);
+      ipc_prepare_send_message(c, IPC_TYPE_GET_MONITORS, len, (uint8_t*)buffer);
+
+      free((void*)buffer);
+
+      ev.events = EPOLLIN | EPOLLOUT;
+      epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev);
     } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
 
     } else {
