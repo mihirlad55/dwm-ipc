@@ -976,6 +976,13 @@ int handleipcevent(int fd, struct epoll_event *ev)
   } else if (ev->events & EPOLLOUT) {
     IPCClient *c = ipc_list_get_client(fd);
     if (c->buffer_size) ipc_push_pending(c);
+
+    // If buffer is empty, stop listeneing for EPOLLOUT
+    if (!c->buffer_size) {
+      struct epoll_event ev;
+      ev.events = EPOLLIN;
+      epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev);
+    }
   } else if (ev->events & EPOLLIN) {
     fprintf(stderr, "Received message from fd %d\n", fd);
     uint8_t msg_type;
