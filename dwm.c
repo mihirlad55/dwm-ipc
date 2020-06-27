@@ -973,6 +973,9 @@ int handleipcevent(int fd, struct epoll_event *ev)
     fprintf(stderr, "EPOLLHUP received from client at fd %d\n", fd);
     ipc_drop_client(fd);
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &client_event);
+  } else if (ev->events & EPOLLOUT) {
+    IPCClient *c = ipc_list_get_client(fd);
+    if (c->buffer_size) ipc_push_pending(c);
   } else if (ev->events & EPOLLIN) {
     fprintf(stderr, "Received message from fd %d\n", fd);
     uint8_t msg_type;
