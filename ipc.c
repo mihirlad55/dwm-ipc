@@ -32,6 +32,7 @@ ipc_init_client(int fd)
 static void
 ipc_list_add_client(IPCClient *nc)
 {
+  fprintf(stderr, "Adding client with fd %d to list\n", nc->fd);
   if (ipc_client_head == NULL) {
     ipc_client_head = nc;
   } else {
@@ -130,6 +131,31 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
 
   return 0;
 }
+
+static ssize_t
+ipc_write_message(int fd, const void *buf, size_t count)
+{
+  size_t written = 0;
+
+  while (written < count) {
+    const ssize_t n = write(fd, (uint8_t*)buf + written, count - written);
+
+    if (n == -1) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK)
+        return written;
+      else if (errno == EINTR)
+        continue;
+      else
+        return n;
+    }
+
+    written += n;
+    fprintf(stderr, "Wrote %d/%d to client at fd %d\n", (int)written, (int)count, fd);
+  }
+
+  return written;
+}
+
 
 int
 ipc_create_socket(const char *filename)
@@ -384,6 +410,52 @@ ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[])
   yajl_tree_free(parent);
 
   return command_num;
+}
+
+void
+ipc_prepare_send_message(IPCClient *c, uint8_t msg_type, uint32_t msg_size,
+    uint8_t *msg)
+{
+  dwm_ipc_header_t header = {
+    .magic = IPC_MAGIC_ARR,
+    .type = msg_type,
+    .size = msg_size
+  };
+
+  uint32_t header_size = sizeof(dwm_ipc_header_t);
+  uint32_t packet_size = header_size + msg_size;
+
+  c->buffer = (char*)realloc(c->buffer, c->buffer_size + packet_size);
+
+  memcpy(c->buffer + c->buffer_size, &header, header_size);
+  c->buffer_size += header_size;
+
+  memcpy(c->buffer + c->buffer_size, msg, msg_size);
+  c->buffer_size += msg_size;
+}
+
+int
+ipc_push_pending(IPCClient *c)
+{
+  const ssize_t n = ipc_write_message(c->fd, c->buffer, c->buffer_size);
+
+  if (n < 0) return n;
+
+  // TODO: Deal with client timeouts
+
+  if (n == c->buffer_size) {
+      c->buffer_size = 0;
+      fprintf(stderr, "Before double free\n");
+      free(c->buffer);
+      fprintf(stderr, "After double free\n");
+      return n;
+  }
+
+  c->buffer_size -= n;
+  memmove(c->buffer, c->buffer + n, c->buffer_size);
+  c->buffer = (char*)realloc(c->buffer, c->buffer_size);
+
+  return n;
 }
 
 

@@ -6,6 +6,7 @@
 #include <yajl/yajl_gen.h>
 
 #define IPC_MAGIC "DWM-IPC"
+#define IPC_MAGIC_ARR { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
 #define IPC_MAGIC_LEN 7 // Not including null char
 
 
@@ -69,5 +70,10 @@ int ipc_drop_client(int fd);
 int ipc_command_str_to_int(const char *command);
 
 int ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[]);
+
+void ipc_prepare_send_message(IPCClient *c, uint8_t msg_type, uint32_t msg_size,
+    uint8_t *msg);
+
+int ipc_push_pending(IPCClient *c);
 
 #endif /* IPC_H_ */
