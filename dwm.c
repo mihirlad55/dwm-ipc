@@ -456,6 +456,7 @@ cleanup(void)
   if (close(epoll_fd)) {
       fprintf(stderr, "Failed to close epoll file descriptor\n");
   }
+  ipc_cleanup(sock_fd);
 }
 
 void

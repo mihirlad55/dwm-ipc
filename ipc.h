@@ -77,4 +77,6 @@ int ipc_push_pending(IPCClient *c);
 
 int ipc_get_monitors(Monitor *selmon, unsigned char **buffer, size_t *len);
 
+void ipc_cleanup(int socket_fd);
+
 #endif /* IPC_H_ */

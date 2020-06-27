@@ -590,6 +590,18 @@ ipc_get_monitors(Monitor *selmon, unsigned char **buffer, size_t *len)
   return 0;
 }
 
+void
+ipc_cleanup(int sock_fd)
+{
+  IPCClient *c = ipc_client_head;
+  while (c) {
+    IPCClient *next = c->next;
 
+    if (c->buffer_size != 0) free(c->buffer);
 
-// TODO: Cleanup socket
+    free(c);
+    c = next;
+  }
+
+  shutdown(sock_fd, SHUT_RDWR);
+}
