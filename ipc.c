@@ -564,9 +564,7 @@ ipc_push_pending(IPCClient *c)
 
   if (n == c->buffer_size) {
       c->buffer_size = 0;
-      fprintf(stderr, "Before double free\n");
       free(c->buffer);
-      fprintf(stderr, "After double free\n");
       return n;
   }
 
