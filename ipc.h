@@ -59,8 +59,6 @@ int ipc_create_socket(const char *filename);
 
 IPCClient *ipc_list_get_client(int fd);
 
-int ipc_register_client(int fd);
-
 int ipc_accept_client(int sock_fd, struct epoll_event *event);
 
 int ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size,

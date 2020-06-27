@@ -327,20 +327,6 @@ ipc_list_get_client(int fd)
 }
 
 int
-ipc_register_client(int fd)
-{
-  IPCClient *nc = ipc_init_client(fd);
-
-  if (nc == NULL) return -1;
-
-  ipc_list_add_client(nc);
-
-  fprintf(stderr, "%s%d\n", "New client at fd: ", fd);
-
-  return 0;
-}
-
-int
 ipc_accept_client(int sock_fd, struct epoll_event *event)
 {
   fputs("In accept client function\n", stderr);
@@ -362,7 +348,12 @@ ipc_accept_client(int sock_fd, struct epoll_event *event)
       }
     }
 
-    ipc_register_client(fd);
+    IPCClient *nc = ipc_init_client(fd);
+    if (nc == NULL) return -1;
+
+    ipc_list_add_client(nc);
+
+    fprintf(stderr, "%s%d\n", "New client at fd: ", fd);
   }
 
   return fd;
