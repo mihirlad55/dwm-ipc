@@ -200,9 +200,11 @@ ipc_create_socket(const char *filename)
 IPCClient*
 ipc_list_get_client(int fd)
 {
-  IPCClient *c;
-  for (c = ipc_client_head; c && c->next; c = c->next)
+  IPCClient *c = ipc_client_head;
+  while (c) {
     if (c->fd == fd) return c;
+    c = c->next;
+  }
 
   return NULL;
 }
