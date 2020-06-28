@@ -227,8 +227,6 @@ dump_monitor(yajl_gen gen, Monitor *mon)
   ystr("nmaster"); yajl_gen_integer(gen, mon->nmaster);
   ystr("num"); yajl_gen_integer(gen, mon->num);
   ystr("bar_y"); yajl_gen_integer(gen, mon->by);
-  ystr("selected_tags"); yajl_gen_integer(gen, mon->seltags);
-  ystr("selected_layout"); yajl_gen_integer(gen, mon->sellt);
   ystr("show_bar"); yajl_gen_bool(gen, mon->showbar);
   ystr("top_bar"); yajl_gen_bool(gen, mon->topbar);
 
@@ -249,24 +247,23 @@ dump_monitor(yajl_gen gen, Monitor *mon)
   yajl_gen_map_close(gen);
 
   ystr("tag_set");
-  yajl_gen_array_open(gen);
-  yajl_gen_integer(gen, mon->tagset[0]);
-  yajl_gen_integer(gen, mon->tagset[1]);
-  yajl_gen_array_close(gen);
+  yajl_gen_map_open(gen);
+  ystr("old"); yajl_gen_integer(gen, mon->tagset[mon->seltags ^ 1]);
+  ystr("current"); yajl_gen_integer(gen, mon->tagset[mon->seltags]);
+  yajl_gen_map_close(gen);
 
-  ystr("Layouts");
-  yajl_gen_array_open(gen);
-  ystr(mon->lt[0]->symbol);
-  ystr(mon->lt[1]->symbol);
-  yajl_gen_array_close(gen);
+  ystr("layout");
+  yajl_gen_map_open(gen);
+  ystr("old"); ystr(mon->lt[mon->sellt ^ 1]->symbol);
+  ystr("current"); ystr(mon->lt[mon->sellt]->symbol);
+  yajl_gen_map_close(gen);
 
-  ystr("selected_client");
-  dump_client(gen, mon->sel);
+  ystr("selected_client"); yajl_gen_integer(gen, mon->sel->win);
 
   ystr("stack");
   yajl_gen_array_open(gen);
   for (Client* c = mon->clients; c; c = c->snext)
-    dump_client(gen, c);
+    yajl_gen_integer(gen, c->win);
   yajl_gen_array_close(gen);
 
   yajl_gen_map_close(gen);
