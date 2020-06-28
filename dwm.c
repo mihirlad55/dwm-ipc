@@ -1074,12 +1074,15 @@ int handleipcevent(int fd, struct epoll_event *ev)
       free(args);
     } else if (msg_type == IPC_TYPE_GET_MONITORS ||
                msg_type == IPC_TYPE_GET_TAGS ||
-               msg_type == IPC_TYPE_GET_LAYOUTS) {
+               msg_type == IPC_TYPE_GET_LAYOUTS ||
+               msg_type == IPC_TYPE_GET_CLIENT) {
       unsigned char *buffer;
       size_t len;
       struct epoll_event ev;
+      int res;
 
       switch (msg_type) {
+        Client *c;
         case IPC_TYPE_GET_MONITORS:
           res = ipc_get_monitors(selmon, &buffer, &len);
           break;
@@ -1088,6 +1091,11 @@ int handleipcevent(int fd, struct epoll_event *ev)
           break;
         case IPC_TYPE_GET_LAYOUTS:
           res = ipc_get_layouts(&buffer, &len, layouts, LENGTH(layouts));
+          break;
+        case IPC_TYPE_GET_CLIENT:
+          res = ipc_parse_get_client(msg, selmon, &c);
+          if (res == 0)
+            ipc_get_client(&buffer, &len, c);
           break;
       }
 

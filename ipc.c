@@ -665,6 +665,74 @@ ipc_get_layouts(unsigned char **buffer, size_t *len, const Layout layouts[],
   return 0;
 }
 
+int
+ipc_parse_get_client(const uint8_t *msg, Monitor *selmon, Client **client)
+{
+  char error_buffer[100];
+  yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
+
+  if (parent == NULL) {
+    fputs("Failed to parse message from client\n", stderr);
+    fprintf(stderr, "%s\n", error_buffer);
+    return -1;
+  }
+
+  // Format:
+  // {
+  //   "client_window_id": <client window id>
+  // }
+  const char *win_path[] = {"client_window_id", 0};
+  yajl_val win_val = yajl_tree_get(parent, win_path, yajl_t_number);
+
+  if (win_val == NULL) {
+    fputs("No client window id found in client message\n", stderr);
+    return -1;
+  }
+
+  Window win = YAJL_GET_INTEGER(win_val);
+
+  for (Monitor *mon = selmon; mon; mon = mon->next) {
+    for (Client *c = mon->clients; c; c = c->next) {
+      if (c->win == win) {
+        *client = c;
+        break;
+      }
+    }
+    if ((*client)->win == win) break;
+  }
+
+  yajl_tree_free(parent);
+
+  if ((*client)->win != win) {
+    fprintf(stderr, "Client with id %lu not found\n", win);
+    return -2;
+  }
+
+  return 0;
+}
+
+int
+ipc_get_client(unsigned char **buffer, size_t *len, Client *c)
+{
+  const unsigned char *temp_buffer;
+
+  yajl_gen gen = yajl_gen_alloc(NULL);
+  yajl_gen_config(gen, yajl_gen_beautify, 1);
+
+  // TODO: specify monitor of client
+  dump_client(gen, c);
+
+  yajl_gen_get_buf(gen, &temp_buffer, len);
+
+  *buffer = (unsigned char*)malloc(sizeof(unsigned char*) * (*len));
+  memmove(*buffer, temp_buffer, *len);
+
+  // Not documented, but this frees temp_buffer
+  yajl_gen_free(gen);
+
+  return 0;
+}
+
 void
 ipc_cleanup(int sock_fd)
 {

@@ -17,7 +17,8 @@ enum {
   IPC_TYPE_GET_MONITORS = 1,
   IPC_TYPE_GET_TAGS = 2,
   IPC_TYPE_GET_LAYOUTS = 3,
-  IPC_TYPE_SUBSCRIBE = 4
+  IPC_TYPE_GET_CLIENT = 4,
+  IPC_TYPE_SUBSCRIBE = 5
 };
 
 enum {
@@ -85,6 +86,11 @@ int ipc_get_tags(unsigned char **buffer, size_t *len, const char *tags[],
 
 int ipc_get_layouts(unsigned char **buffer, size_t *len, const Layout layouts[],
                     const int layouts_len);
+
+int ipc_parse_get_client(const uint8_t *msg, Monitor *selmon,
+                         Client **client);
+
+int ipc_get_client(unsigned char **buffer, size_t *len, Client *c);
 
 void ipc_cleanup(int socket_fd);
 
