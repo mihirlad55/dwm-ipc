@@ -1557,8 +1557,14 @@ run(void)
           return;
       } else if (event_fd == sock_fd) {
         handlesockevent(events + i);
+      } else if (ipc_is_client_registered(event_fd)){
+        if (handleipcevent(event_fd, events + i) < 0) {
+          fprintf(stderr, "Error handling IPC event on fd %d\n", event_fd);
+        }
       } else {
-        handleipcevent(event_fd, events + i);
+        fprintf(stderr, "Got event from unknown fd %d, ptr %p, u32 %d, u64 %lu ", event_fd, events[i].data.ptr, events[i].data.u32, events[i].data.u64);
+        fprintf(stderr, "with events %d\n", events[i].events);
+        return;
       }
     }
   }
