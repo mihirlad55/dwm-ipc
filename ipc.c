@@ -158,6 +158,20 @@ ipc_write_message(int fd, const void *buf, size_t count)
 }
 
 static int
+dump_tags(yajl_gen gen, const char *tags[], int tags_len)
+{
+  yajl_gen_array_open(gen);
+  for (int i = 0; i < tags_len; i++) {
+    yajl_gen_map_open(gen);
+    ystr("bit_mask"); yajl_gen_integer(gen, 1 << i);
+    ystr("name"); ystr(tags[i]);
+    yajl_gen_map_close(gen);
+  }
+  yajl_gen_array_close(gen);
+  return 0;
+}
+
+static int
 dump_client(yajl_gen gen, Client *c)
 {
   yajl_gen_map_open(gen);
@@ -575,6 +589,32 @@ ipc_get_monitors(Monitor *selmon, unsigned char **buffer, size_t *len)
 
   for (Monitor *mon = selmon; mon; mon = mon->next)
     dump_monitor(gen, mon);
+
+  yajl_gen_array_close(gen);
+
+  yajl_gen_get_buf(gen, &temp_buffer, len);
+
+  *buffer = (unsigned char*)malloc(sizeof(unsigned char*) * (*len));
+  memmove(*buffer, temp_buffer, *len);
+
+  // Not documented, but this frees temp_buffer
+  yajl_gen_free(gen);
+
+  return 0;
+}
+
+int
+ipc_get_tags(unsigned char **buffer, size_t *len, const char *tags[],
+    const int tags_len)
+{
+  const unsigned char *temp_buffer;
+
+  yajl_gen gen = yajl_gen_alloc(NULL);
+  yajl_gen_config(gen, yajl_gen_beautify, 1);
+
+  yajl_gen_array_open(gen);
+
+  dump_tags(gen, tags, tags_len);
 
   yajl_gen_array_close(gen);
 

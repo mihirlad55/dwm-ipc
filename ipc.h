@@ -6,7 +6,8 @@
 #include <yajl/yajl_gen.h>
 
 #define IPC_MAGIC "DWM-IPC"
-#define IPC_MAGIC_ARR { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
+#define IPC_MAGIC_ARR                                                          \
+  { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
 #define IPC_MAGIC_LEN 7 // Not including null char
 
 #define ystr(str) yajl_gen_string(gen, (unsigned char *)str, strlen(str))
@@ -14,7 +15,8 @@
 enum {
   IPC_TYPE_RUN_COMMAND = 0,
   IPC_TYPE_GET_MONITORS = 1,
-  IPC_TYPE_SUBSCRIBE = 2
+  IPC_TYPE_GET_TAGS = 2,
+  IPC_TYPE_SUBSCRIBE = 3
 };
 
 enum {
@@ -71,11 +73,14 @@ int ipc_command_str_to_int(const char *command);
 int ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[]);
 
 void ipc_prepare_send_message(IPCClient *c, uint8_t msg_type, uint32_t msg_size,
-    uint8_t *msg);
+                              uint8_t *msg);
 
 int ipc_push_pending(IPCClient *c);
 
 int ipc_get_monitors(Monitor *selmon, unsigned char **buffer, size_t *len);
+
+int ipc_get_tags(unsigned char **buffer, size_t *len, const char *tags[],
+                 const int tags_len);
 
 void ipc_cleanup(int socket_fd);
 

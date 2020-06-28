@@ -1072,18 +1072,26 @@ int handleipcevent(int fd, struct epoll_event *ev)
         free(args[i]);
       }
       free(args);
-    } else if (msg_type == IPC_TYPE_GET_MONITORS) {
+    } else if (msg_type == IPC_TYPE_GET_MONITORS ||
+               msg_type == IPC_TYPE_GET_TAGS) {
       unsigned char *buffer;
       size_t len;
       struct epoll_event ev;
 
-      ipc_get_monitors(selmon, &buffer, &len);
-      ipc_prepare_send_message(c, IPC_TYPE_GET_MONITORS, len, (uint8_t*)buffer);
-
-      free((void*)buffer);
+      switch (msg_type) {
+        case IPC_TYPE_GET_MONITORS:
+          res = ipc_get_monitors(selmon, &buffer, &len);
+          break;
+        case IPC_TYPE_GET_TAGS:
+          res = ipc_get_tags(&buffer, &len, tags, LENGTH(tags));
+          break;
+      }
 
       ev.events = EPOLLIN | EPOLLOUT;
       epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev);
+      ipc_prepare_send_message(c, msg_type, len, (uint8_t*)buffer);
+
+      free((void*)buffer);
     } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
 
     } else {
