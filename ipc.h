@@ -92,6 +92,8 @@ int ipc_parse_get_client(const uint8_t *msg, Monitor *selmon,
 
 int ipc_get_client(unsigned char **buffer, size_t *len, Client *c);
 
+int ipc_is_client_registered(int fd);
+
 void ipc_cleanup(int socket_fd);
 
 #endif /* IPC_H_ */

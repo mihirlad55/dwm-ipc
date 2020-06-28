@@ -733,6 +733,12 @@ ipc_get_client(unsigned char **buffer, size_t *len, Client *c)
   return 0;
 }
 
+int
+ipc_is_client_registered(int fd)
+{
+  return (ipc_list_get_client(fd) != NULL);
+}
+
 void
 ipc_cleanup(int sock_fd)
 {
