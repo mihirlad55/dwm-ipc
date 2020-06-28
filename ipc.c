@@ -170,18 +170,20 @@ dump_client(yajl_gen gen, Client *c)
 
   ystr("size");
   yajl_gen_map_open(gen);
+  ystr("current");
+  yajl_gen_map_open(gen);
   ystr("x"); yajl_gen_integer(gen, c->x);
   ystr("y"); yajl_gen_integer(gen, c->y);
   ystr("width"); yajl_gen_integer(gen, c->w);
   ystr("height"); yajl_gen_integer(gen, c->h);
   yajl_gen_map_close(gen);
-
-  ystr("old_size");
+  ystr("old");
   yajl_gen_map_open(gen);
   ystr("x"); yajl_gen_integer(gen, c->oldx);
   ystr("y"); yajl_gen_integer(gen, c->oldy);
   ystr("width"); yajl_gen_integer(gen, c->oldw);
   ystr("height"); yajl_gen_integer(gen, c->oldh);
+  yajl_gen_map_close(gen);
   yajl_gen_map_close(gen);
 
   ystr("size_hints");
@@ -198,8 +200,8 @@ dump_client(yajl_gen gen, Client *c)
 
   ystr("border");
   yajl_gen_map_open(gen);
-  ystr("border_width"); yajl_gen_integer(gen, c->bw);
-  ystr("old_border_width"); yajl_gen_integer(gen, c->oldbw);
+  ystr("current_width"); yajl_gen_integer(gen, c->bw);
+  ystr("old_width"); yajl_gen_integer(gen, c->oldbw);
   yajl_gen_map_close(gen);
 
   ystr("states");
