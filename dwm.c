@@ -992,7 +992,6 @@ int handleipcevent(int fd, struct epoll_event *ev)
     if (ret == -1)
       return -1;
     else if (ret == -2) {
-
       fprintf(stderr, "Closing connection with client at fd %d ", fd);
       fprintf(stderr, " due to error reading message\n");
       ipc_drop_client(fd);
@@ -1034,15 +1033,12 @@ int handleipcevent(int fd, struct epoll_event *ev)
           toggletag(args[0]);
           break;
         case IPC_COMMAND_TAG_MONITOR:
-          args[0]->i = (args[0]->ui != 0 ? args[0]->ui : args[0]->i);
           tagmon(args[0]);
           break;
         case IPC_COMMAND_FOCUS_MONITOR:
-          args[0]->i = (args[0]->ui != 0 ? args[0]->ui : args[0]->i);
           focusmon(args[0]);
           break;
         case IPC_COMMAND_FOCUS_STACK:
-          args[0]->i = (args[0]->ui != 0 ? args[0]->ui : args[0]->i);
           focusstack(args[0]);
           break;
         case IPC_COMMAND_ZOOM:
@@ -1052,7 +1048,6 @@ int handleipcevent(int fd, struct epoll_event *ev)
           spawn(args[0]);
           break;
         case IPC_COMMAND_INC_NMASTER:
-          args[0]->i = (args[0]->ui != 0 ? args[0]->ui : args[0]->i);
           incnmaster(args[0]);
           break;
         case IPC_COMMAND_KILL_CLIENT:
