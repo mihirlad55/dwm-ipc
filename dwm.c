@@ -973,6 +973,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
     ipc_drop_client(fd);
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, ev);
   } else if (ev->events & EPOLLOUT) {
+    fprintf(stderr, "Sending message to client at fd %d...\n", fd);
     IPCClient *c = ipc_list_get_client(fd);
     if (c->buffer_size) ipc_push_pending(c);
 
@@ -1104,6 +1105,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
 
       if (res != 0) return -1;
 
+      fprintf(stderr, "Preparing message for fd %d...\n", fd);
       ipc_prepare_send_message(c, msg_type, len, (uint8_t*)buffer);
 
       ev->events = EPOLLIN | EPOLLOUT;
@@ -1782,6 +1784,7 @@ void
 setupepoll(void)
 {
   sock_fd = ipc_create_socket(DWM_SOCKET_PATH);
+  fprintf(stderr, "IPC Socket is fd %d\n", sock_fd);
 
   epoll_fd = epoll_create1(0);
   dpy_fd = ConnectionNumber(dpy);
