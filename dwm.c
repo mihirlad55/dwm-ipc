@@ -1006,12 +1006,19 @@ int handleipcevent(int fd, struct epoll_event *ev)
       int argc;
       Arg** args;
       if ((command_num = ipc_parse_run_command(msg, &argc, &args)) < 0) {
-        // TODO: Send message to client that parsing failed
+        char *msg = "{\"result\":\"failure\"}";
+        uint32_t size = strlen(msg);
+
+        ipc_prepare_send_message(c, IPC_TYPE_RUN_COMMAND, size, (uint8_t *)msg);
+        ev->events = EPOLLIN | EPOLLOUT;
+        epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, ev);
+
         return -1;
       }
 
-     // TODO: Implement additional args for specifying client
-     // TODO: Add argument safety checking
+      // TODO: Implement additional args for specifying client
+      // TODO: Add argument safety checking
+      // TODO: Reply to client with result
       switch (command_num) {
         case IPC_COMMAND_VIEW:
           view(args[0]);
