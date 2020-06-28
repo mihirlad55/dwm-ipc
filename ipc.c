@@ -287,6 +287,20 @@ dump_monitor(yajl_gen gen, Monitor *mon)
   return 0;
 }
 
+static int
+dump_layouts(yajl_gen gen, const Layout layouts[], const int layouts_len)
+{
+  yajl_gen_array_open(gen);
+
+  for (int i = 0; i < layouts_len; i++) {
+    ystr(layouts[i].symbol);
+  }
+
+  yajl_gen_array_close(gen);
+
+  return 0;
+}
+
 int
 ipc_create_socket(const char *filename)
 {
@@ -617,6 +631,28 @@ ipc_get_tags(unsigned char **buffer, size_t *len, const char *tags[],
   dump_tags(gen, tags, tags_len);
 
   yajl_gen_array_close(gen);
+
+  yajl_gen_get_buf(gen, &temp_buffer, len);
+
+  *buffer = (unsigned char*)malloc(sizeof(unsigned char*) * (*len));
+  memmove(*buffer, temp_buffer, *len);
+
+  // Not documented, but this frees temp_buffer
+  yajl_gen_free(gen);
+
+  return 0;
+}
+
+int
+ipc_get_layouts(unsigned char **buffer, size_t *len, const Layout layouts[],
+    const int layouts_len)
+{
+  const unsigned char *temp_buffer;
+
+  yajl_gen gen = yajl_gen_alloc(NULL);
+  yajl_gen_config(gen, yajl_gen_beautify, 1);
+
+  dump_layouts(gen, layouts, layouts_len);
 
   yajl_gen_get_buf(gen, &temp_buffer, len);
 
