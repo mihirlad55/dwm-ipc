@@ -996,6 +996,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
       fprintf(stderr, " due to error reading message\n");
       ipc_drop_client(fd);
       epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, ev);
+      return -1;
     }
 
     IPCClient *c = ipc_list_get_client(fd);
@@ -1090,10 +1091,11 @@ int handleipcevent(int fd, struct epoll_event *ev)
         case IPC_TYPE_GET_CLIENT:
           res = ipc_parse_get_client(msg, selmon, &c);
           if (res == 0)
-            ipc_get_client(&buffer, &len, c);
+            res = ipc_get_client(&buffer, &len, c);
           break;
       }
 
+      if (res != 0) return -1;
 
       ipc_prepare_send_message(c, msg_type, len, (uint8_t*)buffer);
 
