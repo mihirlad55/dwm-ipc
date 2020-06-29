@@ -39,7 +39,7 @@ enum {
   IPC_COMMAND_QUIT = 14
 };
 
-enum { IPC_EVENT_TAG_CHANGE, IPC_EVENT_WINDOW_CHANGE };
+enum { IPC_EVENT_TAG_CHANGE = 1, IPC_EVENT_WINDOW_CHANGE = 2};
 
 typedef struct dwm_ipc_header {
   uint8_t magic[IPC_MAGIC_LEN];
