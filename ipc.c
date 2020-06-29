@@ -429,40 +429,38 @@ ipc_drop_client(int fd)
 int
 ipc_command_str_to_int(const char* command)
 {
-  int command_num = -1;
-
   if (strcmp(command, "view") == 0)
-    command_num = IPC_COMMAND_VIEW;
+    return IPC_COMMAND_VIEW;
   else if (strcmp(command, "toggleview") == 0)
-    command_num = IPC_COMMAND_TOGGLE_VIEW;
+    return IPC_COMMAND_TOGGLE_VIEW;
   else if (strcmp(command, "tag") == 0)
-    command_num = IPC_COMMAND_TAG;
+    return IPC_COMMAND_TAG;
   else if (strcmp(command, "toggletag") == 0)
-    command_num = IPC_COMMAND_TOGGLE_TAG;
+    return IPC_COMMAND_TOGGLE_TAG;
   else if (strcmp(command, "tagmon") == 0)
-    command_num = IPC_COMMAND_TAG_MONITOR;
+    return IPC_COMMAND_TAG_MONITOR;
   else if (strcmp(command, "focusmon") == 0)
-    command_num = IPC_COMMAND_FOCUS_MONITOR;
+    return IPC_COMMAND_FOCUS_MONITOR;
   else if (strcmp(command, "focusstack") == 0)
-    command_num = IPC_COMMAND_FOCUS_STACK;
+    return IPC_COMMAND_FOCUS_STACK;
   else if (strcmp(command, "zoom") == 0)
-    command_num = IPC_COMMAND_ZOOM;
+    return IPC_COMMAND_ZOOM;
   else if (strcmp(command, "spawn") == 0)
-    command_num = IPC_COMMAND_SPAWN;
+    return IPC_COMMAND_SPAWN;
   else if (strcmp(command, "incnmaster") == 0)
-    command_num = IPC_COMMAND_INC_NMASTER;
+    return IPC_COMMAND_INC_NMASTER;
   else if (strcmp(command, "killclient") == 0)
-    command_num = IPC_COMMAND_KILL_CLIENT;
+    return IPC_COMMAND_KILL_CLIENT;
   else if (strcmp(command, "togglefloating") == 0)
-    command_num = IPC_COMMAND_TOGGLE_FLOATING;
+    return IPC_COMMAND_TOGGLE_FLOATING;
   else if (strcmp(command, "setmfact") == 0)
-    command_num = IPC_COMMAND_SET_MFACT;
+    return IPC_COMMAND_SET_MFACT;
   else if (strcmp(command, "setlayout") == 0)
-    command_num = IPC_COMMAND_SET_LAYOUT;
+    return IPC_COMMAND_SET_LAYOUT;
   else if (strcmp(command, "quit") == 0)
-    command_num = IPC_COMMAND_QUIT;
-
-  return command_num;
+    return IPC_COMMAND_QUIT;
+  else
+    return -1;
 }
 
 int
