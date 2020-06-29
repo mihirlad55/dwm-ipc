@@ -1006,10 +1006,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
       int argc;
       Arg** args;
       if ((command_num = ipc_parse_run_command(msg, &argc, &args)) < 0) {
-        char *msg = "{\"result\":\"failure\"}";
-        uint32_t size = strlen(msg);
-
-        ipc_prepare_send_message(c, IPC_TYPE_RUN_COMMAND, size, (uint8_t *)msg);
+        ipc_prepare_reply_failure(c, msg_type);
         ev->events = EPOLLIN | EPOLLOUT;
         epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, ev);
 
