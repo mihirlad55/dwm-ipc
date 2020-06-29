@@ -979,7 +979,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
 
     // If buffer is empty, stop listeneing for EPOLLOUT
     if (!c->buffer_size) {
-      ev->events = EPOLLIN;
+      ev->events ^= EPOLLOUT;
       epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, ev);
     }
   } else if (ev->events & EPOLLIN) {
@@ -1007,7 +1007,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
       Arg** args;
       if ((command_num = ipc_parse_run_command(msg, &argc, &args)) < 0) {
         ipc_prepare_reply_failure(c, msg_type);
-        ev->events = EPOLLIN | EPOLLOUT;
+        ev->events |= EPOLLOUT;
         epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, ev);
 
         return -1;
@@ -1100,7 +1100,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
       fprintf(stderr, "Preparing message for fd %d...\n", fd);
       ipc_prepare_send_message(c, msg_type, len, (uint8_t*)buffer);
 
-      ev->events = EPOLLIN | EPOLLOUT;
+      ev->events |= EPOLLOUT;
       epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, ev);
 
       free((void*)buffer);
