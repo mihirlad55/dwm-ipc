@@ -731,6 +731,24 @@ ipc_get_client(unsigned char **buffer, size_t *len, Client *c)
   return 0;
 }
 
+void
+ipc_prepare_reply_failure(IPCClient *c, int msg_type)
+{
+  const char *failure_msg = "{\"result\":\"failure\"}";
+  const size_t msg_len = strlen(failure_msg);
+
+  ipc_prepare_send_message(c, msg_type, msg_len, (uint8_t *)failure_msg);
+}
+
+void
+ipc_prepare_reply_success(IPCClient *c, int msg_type)
+{
+  const char *success_msg = "{\"result\":\"success\"}";
+  const size_t msg_len = strlen(success_msg);
+
+  ipc_prepare_send_message(c, msg_type, msg_len, (uint8_t *)success_msg);
+}
+
 int
 ipc_is_client_registered(int fd)
 {

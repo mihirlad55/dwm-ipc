@@ -94,6 +94,10 @@ int ipc_get_client(unsigned char **buffer, size_t *len, Client *c);
 
 int ipc_is_client_registered(int fd);
 
+void ipc_prepare_reply_failure(IPCClient *c, int msg_type);
+
+void ipc_prepare_reply_success(IPCClient *c, int msg_type);
+
 void ipc_cleanup(int socket_fd);
 
 #endif /* IPC_H_ */
