@@ -427,7 +427,7 @@ ipc_drop_client(int fd)
 }
 
 int
-ipc_command_str_to_int(const char* command)
+ipc_command_stoi(const char* command)
 {
   if (strcmp(command, "view") == 0)
     return IPC_COMMAND_VIEW;
@@ -492,7 +492,7 @@ ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[])
   fprintf(stderr, "Received command: %s\n", command);
 
   int command_num;
-  if ((command_num = ipc_command_str_to_int(command)) < 0)
+  if ((command_num = ipc_command_stoi(command)) < 0)
       return -1;
 
   const char *args_path[] = {"args", 0};

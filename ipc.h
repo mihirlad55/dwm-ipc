@@ -70,7 +70,7 @@ int ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size,
 
 int ipc_drop_client(int fd);
 
-int ipc_command_str_to_int(const char *command);
+int ipc_command_stoi(const char *command);
 
 int ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[]);
 
