@@ -664,9 +664,10 @@ ipc_get_layouts(unsigned char **buffer, size_t *len, const Layout layouts[],
 }
 
 int
-ipc_parse_get_client(const uint8_t *msg, Monitor *selmon, Client **client)
+ipc_parse_get_client(const uint8_t *msg, Window *win)
 {
   char error_buffer[100];
+
   yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
 
   if (parent == NULL) {
@@ -687,24 +688,9 @@ ipc_parse_get_client(const uint8_t *msg, Monitor *selmon, Client **client)
     return -1;
   }
 
-  Window win = YAJL_GET_INTEGER(win_val);
-
-  for (Monitor *mon = selmon; mon; mon = mon->next) {
-    for (Client *c = mon->clients; c; c = c->next) {
-      if (c->win == win) {
-        *client = c;
-        break;
-      }
-    }
-    if ((*client)->win == win) break;
-  }
+  *win = YAJL_GET_INTEGER(win_val);
 
   yajl_tree_free(parent);
-
-  if ((*client)->win != win) {
-    fprintf(stderr, "Client with id %lu not found\n", win);
-    return -2;
-  }
 
   return 0;
 }

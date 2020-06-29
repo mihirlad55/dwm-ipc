@@ -87,8 +87,7 @@ int ipc_get_tags(unsigned char **buffer, size_t *len, const char *tags[],
 int ipc_get_layouts(unsigned char **buffer, size_t *len, const Layout layouts[],
                     const int layouts_len);
 
-int ipc_parse_get_client(const uint8_t *msg, Monitor *selmon,
-                         Client **client);
+int ipc_parse_get_client(const uint8_t *msg, Window *win);
 
 int ipc_get_client(unsigned char **buffer, size_t *len, Client *c);
 

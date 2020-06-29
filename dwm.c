@@ -983,6 +983,8 @@ int handleipcevent(int fd, struct epoll_event *ev)
       epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, ev);
     }
   } else if (ev->events & EPOLLIN) {
+    IPCClient *c = ipc_list_get_client(fd);
+
     fprintf(stderr, "Received message from fd %d\n", fd);
     uint8_t msg_type;
     uint32_t msg_size;
@@ -998,8 +1000,6 @@ int handleipcevent(int fd, struct epoll_event *ev)
       epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, ev);
       return -1;
     }
-
-    IPCClient *c = ipc_list_get_client(fd);
 
     if (msg_type == IPC_TYPE_RUN_COMMAND) {
       int command_num;
@@ -1078,7 +1078,8 @@ int handleipcevent(int fd, struct epoll_event *ev)
       int res;
 
       switch (msg_type) {
-        Client *c;
+        Client *dwm_c;
+        Window win;
         case IPC_TYPE_GET_MONITORS:
           res = ipc_get_monitors(selmon, &buffer, &len);
           break;
@@ -1089,9 +1090,11 @@ int handleipcevent(int fd, struct epoll_event *ev)
           res = ipc_get_layouts(&buffer, &len, layouts, LENGTH(layouts));
           break;
         case IPC_TYPE_GET_CLIENT:
-          res = ipc_parse_get_client(msg, selmon, &c);
-          if (res == 0)
-            res = ipc_get_client(&buffer, &len, c);
+          res = ipc_parse_get_client(msg, &win);
+          if (res == 0) {
+            dwm_c = wintoclient(win);
+            res = ipc_get_client(&buffer, &len, dwm_c);
+          }
           break;
       }
 
@@ -1114,7 +1117,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
 
   } else {
     fprintf(stderr, "Epoll event returned %d from fd %d\n", ev->events, fd);
-    exit(1);
+    return -1;
   }
 
   return 0;
