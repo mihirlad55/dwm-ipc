@@ -1079,6 +1079,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
 
       switch (msg_type) {
         Client *dwm_c;
+        int mon_num;
         Window win;
         case IPC_TYPE_GET_MONITORS:
           res = ipc_get_monitors(selmon, &buffer, &len);
@@ -1093,7 +1094,8 @@ int handleipcevent(int fd, struct epoll_event *ev)
           res = ipc_parse_get_client(msg, &win);
           if (res == 0) {
             dwm_c = wintoclient(win);
-            res = ipc_get_client(&buffer, &len, dwm_c);
+            mon_num = wintomon(win)->num;
+            res = ipc_get_client(&buffer, &len, dwm_c, mon_num);
           }
           break;
       }

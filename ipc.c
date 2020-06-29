@@ -172,7 +172,7 @@ dump_tags(yajl_gen gen, const char *tags[], int tags_len)
 }
 
 static int
-dump_client(yajl_gen gen, Client *c)
+dump_client(yajl_gen gen, Client *c, int mon_num)
 {
   yajl_gen_map_open(gen);
 
@@ -181,6 +181,7 @@ dump_client(yajl_gen gen, Client *c)
   ystr("maxa"); yajl_gen_double(gen, c->maxa);
   ystr("tags"); yajl_gen_integer(gen, c->tags);
   ystr("window_id"); yajl_gen_integer(gen, c->win);
+  ystr("monitor_number"); yajl_gen_integer(gen, mon_num);
 
   ystr("size");
   yajl_gen_map_open(gen);
@@ -696,15 +697,14 @@ ipc_parse_get_client(const uint8_t *msg, Window *win)
 }
 
 int
-ipc_get_client(unsigned char **buffer, size_t *len, Client *c)
+ipc_get_client(unsigned char **buffer, size_t *len, Client *c, int mon_num)
 {
   const unsigned char *temp_buffer;
 
   yajl_gen gen = yajl_gen_alloc(NULL);
   yajl_gen_config(gen, yajl_gen_beautify, 1);
 
-  // TODO: specify monitor of client
-  dump_client(gen, c);
+  dump_client(gen, c, mon_num);
 
   yajl_gen_get_buf(gen, &temp_buffer, len);
 
