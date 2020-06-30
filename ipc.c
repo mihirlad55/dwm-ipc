@@ -12,6 +12,7 @@
 #include "ipc.h"
 
 static IPCClient *ipc_client_head = NULL;
+static IPCTagState *tag_states = NULL;
 static int epoll_fd = -1;
 
 static int
@@ -97,6 +98,52 @@ ipc_list_remove_client(IPCClient *c)
   if (cprev != NULL) cprev->next = c->next;
   if (cnext != NULL) cnext->prev = c->prev;
   if (c == ipc_client_head) ipc_client_head = c->next;
+}
+
+static IPCTagState*
+ipc_tag_state_list_get(int mon_num)
+{
+  for (IPCTagState *state = tag_states; state; state = state->next) {
+    if (state->mon_num == mon_num) return state;
+  }
+  return NULL;
+}
+
+static IPCTagState*
+ipc_tag_state_new(int mon_num, int sel, int occ, int urg)
+{
+  IPCTagState *state = (IPCTagState *)malloc(sizeof(IPCTagState));
+  if (state == NULL) return NULL;
+
+  state->mon_num = mon_num;
+  state->selected = sel;
+  state->occupied = occ;
+  state->urgent = urg;
+
+  return state;
+}
+
+static void
+ipc_tag_state_list_add(IPCTagState *state)
+{
+  IPCTagState *s;
+  if (tag_states) {
+    for (s = tag_states; s && s->next; s = s->next);
+
+    s->next = state;
+    state->prev = s;
+  } else
+    tag_states = state;
+}
+
+static int
+ipc_tag_state_cmp(IPCTagState *old, IPCTagState *new)
+{
+  if (old->mon_num == new->mon_num && old->selected == new->selected &&
+      old->occupied == new->occupied && old->urgent == new->urgent)
+    return 1;
+  else
+    return 0;
 }
 
 static int
@@ -344,11 +391,34 @@ dump_layouts(yajl_gen gen, const Layout layouts[], const int layouts_len)
   return 0;
 }
 
+static int
+dump_tag_state(yajl_gen gen, IPCTagState state)
+{
+  yajl_gen_map_open(gen);
+  ystr("monitor_number"); yajl_gen_integer(gen, state.mon_num);
+  ystr("selected"); yajl_gen_integer(gen, state.selected);
+  ystr("occuped"); yajl_gen_integer(gen, state.occupied);
+  ystr("urgent"); yajl_gen_integer(gen, state.urgent);
+  yajl_gen_map_close(gen);
 
+  return 0;
+}
 
+static int
+dump_tag_event(yajl_gen gen, IPCTagState old, IPCTagState new)
+{
+  ystr("tag_change_event");
+  yajl_gen_map_open(gen);
 
+  ystr("old");
+  dump_tag_state(gen, old);
 
+  ystr("new");
+  dump_tag_state(gen, new);
 
+  yajl_gen_map_close(gen);
+  return 0;
+}
 
 int
 ipc_init(const char *socket_path, const int p_epoll_fd)
@@ -762,6 +832,89 @@ ipc_get_client(unsigned char **buffer, size_t *len, Client *c, int mon_num)
   return 0;
 }
 
+int
+ipc_event_stoi(const char *subscription)
+{
+  if (strcmp(subscription, "tag_change_event") == 0)
+    return IPC_EVENT_TAG_CHANGE;
+  else if (strcmp(subscription, "window_change_event") == 0)
+    return IPC_EVENT_WINDOW_CHANGE;
+  else
+    return -1;
+}
+
+int
+ipc_parse_subscribe(const uint8_t *msg, int *subscribe)
+{
+  char error_buffer[100];
+  yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
+
+  if (parent == NULL) {
+    fputs("Failed to parse command from client\n", stderr);
+    fprintf(stderr, "%s\n", error_buffer);
+    return -1;
+  }
+
+  // Format:
+  // {
+  //   "event": "<event name>"
+  //   "action": "<subscribe|unsubscribe>"
+  // }
+  const char *event_path[] = {"event", 0};
+  yajl_val event_val = yajl_tree_get(parent, event_path, yajl_t_string);
+
+  if (event_val == NULL) {
+    fputs("No 'event' key found in client message\n", stderr);
+    return -1;
+  }
+
+  const char* event = YAJL_GET_STRING(event_val);
+  fprintf(stderr, "Received event: %s\n", event);
+
+  int event_num;
+  if ((event_num = ipc_event_stoi(event)) < 0)
+    return -1;
+
+  const char *action_path[] = {"action", 0};
+  yajl_val action_val = yajl_tree_get(parent, action_path, yajl_t_string);
+
+  if (action_val == NULL) {
+    fputs("No 'action' key found in client message\n", stderr);
+    return -1;
+  }
+
+  const char* action = YAJL_GET_STRING(action_val);
+
+  if (strcmp(action, "subscribe") == 0)
+    *subscribe = IPC_ACTION_SUBSCRIBE;
+  else if (strcmp(action, "unsubscribe") == 0)
+    *subscribe = IPC_ACTION_UNSUBSCRIBE;
+  else {
+    fputs("Invalid action specified for subscription\n", stderr);
+    return -1;
+  }
+
+  yajl_tree_free(parent);
+
+  return event_num;
+}
+
+int
+ipc_subscribe(IPCClient *c, int event, int action)
+{
+  if (action == IPC_ACTION_SUBSCRIBE) {
+    c->subscriptions |= event;
+  } else if (action == IPC_ACTION_UNSUBSCRIBE) {
+    c->subscriptions ^= event;
+  } else {
+    ipc_prepare_reply_failure(c, IPC_TYPE_SUBSCRIBE);
+    return -1;
+  }
+
+  ipc_prepare_reply_success(c, IPC_TYPE_SUBSCRIBE);
+  return 0;
+}
+
 void
 ipc_prepare_reply_failure(IPCClient *c, int msg_type)
 {
@@ -778,6 +931,52 @@ ipc_prepare_reply_success(IPCClient *c, int msg_type)
   const size_t msg_len = strlen(success_msg);
 
   ipc_prepare_send_message(c, msg_type, msg_len, success_msg);
+}
+
+int
+ipc_update_tag_state(IPCTagState state)
+{
+  IPCTagState *old_state = ipc_tag_state_list_get(state.mon_num);
+
+  if (old_state == NULL) {
+    old_state = ipc_tag_state_new(state.mon_num, 0, 0, 0);
+    ipc_tag_state_list_add(old_state);
+  }
+
+  if (!ipc_tag_state_cmp(old_state, &state)) {
+    fprintf(stderr, "Tag state changed\n");
+    ipc_tag_event(*old_state, state);
+    old_state->selected = state.selected;
+    old_state->occupied = state.occupied;
+    old_state->urgent = state.urgent;
+    return 1;
+  }
+
+  return 0;
+}
+
+void
+ipc_tag_event(IPCTagState old, IPCTagState new)
+{
+  const unsigned char *buffer;
+  size_t len;
+
+  yajl_gen gen = yajl_gen_alloc(NULL);
+  yajl_gen_config(gen, yajl_gen_beautify, 1);
+
+  yajl_gen_map_open(gen);
+  dump_tag_event(gen, old, new);
+  yajl_gen_map_close(gen);
+
+  yajl_gen_status stat = yajl_gen_get_buf(gen, &buffer, &len);
+
+  for (IPCClient *c = ipc_client_head; c; c = c->next) {
+    fprintf(stderr, "Sending tag state event to fd %d\n", c->fd);
+    ipc_prepare_send_message(c, IPC_TYPE_EVENT, len, (char *)buffer);
+  }
+
+  // Not documented, but this frees temp_buffer
+  yajl_gen_free(gen);
 }
 
 int
@@ -798,6 +997,13 @@ ipc_cleanup(int sock_fd)
 
     free(c);
     c = next;
+  }
+
+  IPCTagState *s = tag_states;
+  while (s) {
+    IPCTagState *next = s->next;
+    free(s);
+    s = next;
   }
 
   shutdown(sock_fd, SHUT_RDWR);

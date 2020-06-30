@@ -706,6 +706,11 @@ drawbar(Monitor *m)
 		}
 	}
 	drw_map(drw, m->barwin, 0, 0, m->ww, bh);
+
+  IPCTagState tag_state = { .mon_num = m->num,
+                            .selected = m->tagset[m->seltags],
+                            .occupied = occ, .urgent = urg };
+  ipc_update_tag_state(tag_state);
 }
 
 void
@@ -1084,7 +1089,12 @@ int handleipcevent(int fd, struct epoll_event *ev)
 
       free((void*)buffer);
     } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
+      int action;
+      int event = ipc_parse_subscribe(msg, &action);
 
+      if (event < 0) return -1;
+
+      if (ipc_subscribe(c, event, action) < 0) return -1;
     } else {
       fprintf(stderr, "Invalid message type received from fd %d", fd);
     }

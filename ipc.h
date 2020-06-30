@@ -43,6 +43,8 @@ enum {
 
 enum { IPC_EVENT_TAG_CHANGE = 1, IPC_EVENT_WINDOW_CHANGE = 2 };
 
+enum { IPC_ACTION_UNSUBSCRIBE = 0, IPC_ACTION_SUBSCRIBE = 1 };
+
 typedef struct dwm_ipc_header {
   uint8_t magic[IPC_MAGIC_LEN];
   uint32_t size;
@@ -60,6 +62,17 @@ struct IPCClient {
   struct epoll_event event;
   IPCClient *next;
   IPCClient *prev;
+};
+
+typedef struct IPCTagState IPCTagState;
+struct IPCTagState {
+  int mon_num;
+  int selected;
+  int occupied;
+  int urgent;
+
+  IPCTagState *next;
+  IPCTagState *prev;
 };
 
 int ipc_init(const char *socket_path, const int epoll_fd);
@@ -95,6 +108,16 @@ int ipc_parse_get_client(const uint8_t *msg, Window *win);
 int ipc_get_client(unsigned char **buffer, size_t *len, Client *c, int mon_num);
 
 int ipc_is_client_registered(int fd);
+
+int ipc_event_stoi(const char *subscription);
+
+int ipc_parse_subscribe(const uint8_t *msg, int *action);
+
+int ipc_subscribe(IPCClient *c, int event, int action);
+
+int ipc_update_tag_state(IPCTagState new_state);
+
+void ipc_tag_event(IPCTagState old_state, IPCTagState new_state);
 
 void ipc_prepare_reply_failure(IPCClient *c, int msg_type);
 
