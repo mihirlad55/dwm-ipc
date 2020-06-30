@@ -559,7 +559,10 @@ ipc_prepare_send_message(IPCClient *c, uint8_t msg_type, uint32_t msg_size,
   uint32_t header_size = sizeof(dwm_ipc_header_t);
   uint32_t packet_size = header_size + msg_size;
 
-  c->buffer = (char*)realloc(c->buffer, c->buffer_size + packet_size);
+  if (c->buffer_size == 0)
+    c->buffer = (char*)malloc(c->buffer_size + packet_size);
+  else
+    c->buffer = (char*)realloc(c->buffer, c->buffer_size + packet_size);
 
   memcpy(c->buffer + c->buffer_size, &header, header_size);
   c->buffer_size += header_size;
