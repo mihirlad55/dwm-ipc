@@ -11,7 +11,48 @@
 
 #include "ipc.h"
 
-static IPCClient *ipc_client_head;
+static IPCClient *ipc_client_head = NULL;
+static int epoll_fd = -1;
+
+static int
+ipc_create_socket(const char *filename)
+{
+  fputs("In create socket function\n", stderr);
+  struct sockaddr_un addr;
+  const size_t addr_size = sizeof(struct sockaddr_un);
+  const int sock_type = SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
+
+  // In case socket file exists
+  unlink(filename);
+
+  // For portability clear the addr structure, since some implementations have
+  // nonstandard fields in the structure
+  memset(&addr, 0, addr_size);
+
+  // TODO: Make parent directories to file
+  // TODO: Resolve tilde
+
+  addr.sun_family = AF_LOCAL;
+  strcpy(addr.sun_path, filename);
+
+  const int sock_fd = socket(AF_LOCAL, sock_type, 0);
+  if (sock_fd == -1) {
+    fputs("Failed to create socket\n", stderr);
+    return -1;
+  }
+
+  if (bind(sock_fd, (const struct sockaddr *)&addr, addr_size) == -1) {
+    fputs("Failed to bind socket\n", stderr);
+    return -1;
+  }
+
+  if (listen(sock_fd, 5) < 0) {
+    fputs("Failed to listen for connections on socket\n", stderr);
+    return -1;
+  }
+
+  return sock_fd;
+}
 
 static IPCClient*
 ipc_init_client(int fd)
@@ -23,6 +64,7 @@ ipc_init_client(int fd)
   c->buffer_size = 0;
   c->buffer = NULL;
   c->fd = fd;
+  c->event.data.fd = fd;
   c->next = NULL;
   c->prev = NULL;
   c->subscriptions = 0;
@@ -302,44 +344,30 @@ dump_layouts(yajl_gen gen, const Layout layouts[], const int layouts_len)
   return 0;
 }
 
+
+
+
+
+
+
 int
-ipc_create_socket(const char *filename)
+ipc_init(const char *socket_path, const int p_epoll_fd)
 {
-  fputs("In create socket function\n", stderr);
-  struct sockaddr_un addr;
-  const size_t addr_size = sizeof(struct sockaddr_un);
-  const int sock_type = SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
+  struct epoll_event event;
 
-  // In case socket file exists
-  unlink(filename);
+  int socket_fd = ipc_create_socket(socket_path);
+  if (socket_fd < 0) return -1;;
 
-  // For portability clear the addr structure, since some implementations have
-  // nonstandard fields in the structure
-  memset(&addr, 0, addr_size);
+  epoll_fd = p_epoll_fd;
 
-  // TODO: Make parent directories to file
-  // TODO: Resolve tilde
-
-  addr.sun_family = AF_LOCAL;
-  strcpy(addr.sun_path, filename);
-
-  const int sock_fd = socket(AF_LOCAL, sock_type, 0);
-  if (sock_fd == -1) {
-    fputs("Failed to create socket\n", stderr);
+  event.data.fd = socket_fd;
+  event.events = EPOLLIN;
+  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket_fd, &event)) {
+    fputs("Failed to add sock file descripttor to epoll", stderr);
     return -1;
   }
 
-  if (bind(sock_fd, (const struct sockaddr *)&addr, addr_size) == -1) {
-    fputs("Failed to bind socket\n", stderr);
-    return -1;
-  }
-
-  if (listen(sock_fd, 5) < 0) {
-    fputs("Failed to listen for connections on socket\n", stderr);
-    return -1;
-  }
-
-  return sock_fd;
+  return socket_fd;
 }
 
 IPCClient*
@@ -367,15 +395,18 @@ ipc_accept_client(int sock_fd, struct epoll_event *event)
     memset(&client_addr, 0, sizeof(struct sockaddr_un));
 
     fd = accept(sock_fd, (struct sockaddr *)&client_addr, &len);
-    if (fd < 0) {
-      if (errno != EINTR) {
-        fputs("Failed to accept IPC connection from client", stderr);
-        return -1;
-      }
+    if (fd < 0 && errno != EINTR) {
+      fputs("Failed to accept IPC connection from client", stderr);
+      return -1;
     }
 
     IPCClient *nc = ipc_init_client(fd);
     if (nc == NULL) return -1;
+
+    nc->event.data.fd = fd;
+    nc->event.events = EPOLLIN | EPOLLHUP;
+
+    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &nc->event);
 
     ipc_list_add_client(nc);
 
@@ -396,6 +427,9 @@ ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size, uint8_t **msg)
         (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
       return -2;
 
+    fprintf(stderr, "Error reading message: dropping client at fd %d", fd);
+    ipc_drop_client(fd);
+
     return -1;
   }
 
@@ -411,14 +445,16 @@ ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size, uint8_t **msg)
 int
 ipc_drop_client(int fd)
 {
-  IPCClient *c = ipc_list_get_client(fd);
-  ipc_list_remove_client(c);
-
-  free(c);
-
   int res = close(fd);
 
   if (res == 0) {
+    struct epoll_event ev;
+    IPCClient *c = ipc_list_get_client(fd);
+
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &ev);
+    ipc_list_remove_client(c);
+    free(c);
+
     fprintf(stderr, "Successfully removed client on fd %d\n", fd);
   } else if (res < 0 && res != EINTR) {
     fprintf(stderr, "Failed to close fd %d\n", fd);
@@ -569,6 +605,9 @@ ipc_prepare_send_message(IPCClient *c, const uint8_t msg_type,
 
   memcpy(c->buffer + c->buffer_size, msg, msg_size);
   c->buffer_size += msg_size;
+
+  c->event.events |= EPOLLOUT;
+  epoll_ctl(epoll_fd, EPOLL_CTL_MOD, c->fd, &c->event);
 }
 
 int
@@ -583,6 +622,9 @@ ipc_push_pending(IPCClient *c)
   if (n == c->buffer_size) {
       c->buffer_size = 0;
       free(c->buffer);
+      if (c->event.events & EPOLLOUT)
+        c->event.events -= EPOLLOUT;
+      epoll_ctl(epoll_fd, EPOLL_CTL_MOD, c->fd, &c->event);
       return n;
   }
 
@@ -750,6 +792,7 @@ ipc_cleanup(int sock_fd)
   IPCClient *c = ipc_client_head;
   while (c) {
     IPCClient *next = c->next;
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &c->event);
 
     if (c->buffer_size != 0) free(c->buffer);
 

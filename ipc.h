@@ -4,6 +4,7 @@
 #include "types.h"
 #include <stdint.h>
 #include <yajl/yajl_gen.h>
+#include <sys/epoll.h>
 
 #define IPC_MAGIC "DWM-IPC"
 #define IPC_MAGIC_ARR                                                          \
@@ -56,11 +57,12 @@ struct IPCClient {
   char *buffer;
   uint32_t buffer_size;
 
+  struct epoll_event event;
   IPCClient *next;
   IPCClient *prev;
 };
 
-int ipc_create_socket(const char *filename);
+int ipc_init(const char *socket_path, const int epoll_fd);
 
 IPCClient *ipc_list_get_client(int fd);
 

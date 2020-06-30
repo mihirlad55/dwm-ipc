@@ -957,12 +957,6 @@ handlesockevent(struct epoll_event *ev)
   if (new_fd < 0)
     return -1;
 
-  struct epoll_event client_event;
-
-  client_event.events = EPOLLIN;
-  client_event.data.fd = new_fd;
-  epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &client_event);
-
   return new_fd;
 }
 
@@ -971,17 +965,10 @@ int handleipcevent(int fd, struct epoll_event *ev)
   if (ev->events & EPOLLHUP) {
     fprintf(stderr, "EPOLLHUP received from client at fd %d\n", fd);
     ipc_drop_client(fd);
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, ev);
   } else if (ev->events & EPOLLOUT) {
     fprintf(stderr, "Sending message to client at fd %d...\n", fd);
     IPCClient *c = ipc_list_get_client(fd);
     if (c->buffer_size) ipc_push_pending(c);
-
-    // If buffer is empty, stop listeneing for EPOLLOUT
-    if (!c->buffer_size) {
-      ev->events ^= EPOLLOUT;
-      epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, ev);
-    }
   } else if (ev->events & EPOLLIN) {
     IPCClient *c = ipc_list_get_client(fd);
 
@@ -991,15 +978,8 @@ int handleipcevent(int fd, struct epoll_event *ev)
     uint8_t *msg;
 
     int ret = ipc_read_client(fd, &msg_type, &msg_size, &msg);
-    if (ret == -1)
+    if (ret < -1)
       return -1;
-    else if (ret == -2) {
-      fprintf(stderr, "Closing connection with client at fd %d ", fd);
-      fprintf(stderr, " due to error reading message\n");
-      ipc_drop_client(fd);
-      epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, ev);
-      return -1;
-    }
 
     if (msg_type == IPC_TYPE_RUN_COMMAND) {
       int command_num;
@@ -1007,9 +987,6 @@ int handleipcevent(int fd, struct epoll_event *ev)
       Arg** args;
       if ((command_num = ipc_parse_run_command(msg, &argc, &args)) < 0) {
         ipc_prepare_reply_failure(c, msg_type);
-        ev->events |= EPOLLOUT;
-        epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, ev);
-
         return -1;
       }
 
@@ -1104,9 +1081,6 @@ int handleipcevent(int fd, struct epoll_event *ev)
 
       fprintf(stderr, "Preparing message for fd %d...\n", fd);
       ipc_prepare_send_message(c, msg_type, len, (char *)buffer);
-
-      ev->events |= EPOLLOUT;
-      epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, ev);
 
       free((void*)buffer);
     } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
@@ -1786,12 +1760,9 @@ setup(void)
 void
 setupepoll(void)
 {
-  sock_fd = ipc_create_socket(DWM_SOCKET_PATH);
-  fprintf(stderr, "IPC Socket is fd %d\n", sock_fd);
-
   epoll_fd = epoll_create1(0);
   dpy_fd = ConnectionNumber(dpy);
-  struct epoll_event dpy_event, sock_event;
+  struct epoll_event dpy_event;
 
   fprintf(stderr, "Display socket is fd %d\n", dpy_fd);
 
@@ -1807,11 +1778,8 @@ setupepoll(void)
     exit(1);
   }
 
-  sock_event.events = EPOLLIN;
-  sock_event.data.fd = sock_fd;
-  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock_fd, &sock_event)) {
-    fputs("Failed to add sock file descripttor to epoll", stderr);
-  }
+  sock_fd = ipc_init(DWM_SOCKET_PATH, epoll_fd);
+  fprintf(stderr, "IPC Socket is fd %d\n", sock_fd);
 }
 
 void
