@@ -144,15 +144,20 @@ int main(int argc, char *argv[]) {
 
   dwm_ipc_header_t msg_header;
   strncpy(msg_header.magic, IPC_MAGIC, IPC_MAGIC_LEN);
-  msg_header.type = IPC_TYPE_GET_CLIENT;
-  char *msg = "{\n"
+  msg_header.type = IPC_TYPE_SUBSCRIBE;
+  /*char *msg = "{\n"
               "  \"client_window_id\": 8388614\n"
-              "}";
+              "}";*/
   /*char *msg =
     "{\n"
     "  \"command\": \"focusstack\",\n"
     "  \"args\": [ 1 ]\n"
     "}";*/
+  char *msg =
+    "{\n"
+    "  \"event\": \"tag_change_event\",\n"
+    "  \"action\": \"subscribe\"\n"
+    "}";
   msg_header.size = strlen(msg) + 1;
 
   uint8_t buffer[sizeof(dwm_ipc_header_t) + msg_header.size];
@@ -166,6 +171,8 @@ int main(int argc, char *argv[]) {
   uint8_t *reply;
 
   ipc_recv_message(sock, &msg_type, &msg_size, &reply);
+  printf("%s\n", reply);
 
+  ipc_recv_message(sock, &msg_type, &msg_size, &reply);
   printf("%s\n", reply);
 }
