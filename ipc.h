@@ -64,17 +64,6 @@ struct IPCClient {
   IPCClient *prev;
 };
 
-typedef struct IPCTagState IPCTagState;
-struct IPCTagState {
-  int mon_num;
-  int selected;
-  int occupied;
-  int urgent;
-
-  IPCTagState *next;
-  IPCTagState *prev;
-};
-
 int ipc_init(const char *socket_path, const int epoll_fd);
 
 IPCClient *ipc_list_get_client(int fd);
@@ -115,9 +104,7 @@ int ipc_parse_subscribe(const uint8_t *msg, int *action);
 
 int ipc_subscribe(IPCClient *c, int event, int action);
 
-int ipc_update_tag_state(IPCTagState new_state);
-
-void ipc_tag_event(IPCTagState old_state, IPCTagState new_state);
+void ipc_tag_change_event(int mon_num, TagState old_state, TagState new_state);
 
 void ipc_prepare_reply_failure(IPCClient *c, int msg_type);
 

@@ -12,7 +12,6 @@
 #include "ipc.h"
 
 static IPCClient *ipc_client_head = NULL;
-static IPCTagState *tag_states = NULL;
 static int epoll_fd = -1;
 
 static int
@@ -98,52 +97,6 @@ ipc_list_remove_client(IPCClient *c)
   if (cprev != NULL) cprev->next = c->next;
   if (cnext != NULL) cnext->prev = c->prev;
   if (c == ipc_client_head) ipc_client_head = c->next;
-}
-
-static IPCTagState*
-ipc_tag_state_list_get(int mon_num)
-{
-  for (IPCTagState *state = tag_states; state; state = state->next) {
-    if (state->mon_num == mon_num) return state;
-  }
-  return NULL;
-}
-
-static IPCTagState*
-ipc_tag_state_new(int mon_num, int sel, int occ, int urg)
-{
-  IPCTagState *state = (IPCTagState *)malloc(sizeof(IPCTagState));
-  if (state == NULL) return NULL;
-
-  state->mon_num = mon_num;
-  state->selected = sel;
-  state->occupied = occ;
-  state->urgent = urg;
-
-  return state;
-}
-
-static void
-ipc_tag_state_list_add(IPCTagState *state)
-{
-  IPCTagState *s;
-  if (tag_states) {
-    for (s = tag_states; s && s->next; s = s->next);
-
-    s->next = state;
-    state->prev = s;
-  } else
-    tag_states = state;
-}
-
-static int
-ipc_tag_state_cmp(IPCTagState *old, IPCTagState *new)
-{
-  if (old->mon_num == new->mon_num && old->selected == new->selected &&
-      old->occupied == new->occupied && old->urgent == new->urgent)
-    return 1;
-  else
-    return 0;
 }
 
 static int
@@ -392,12 +345,11 @@ dump_layouts(yajl_gen gen, const Layout layouts[], const int layouts_len)
 }
 
 static int
-dump_tag_state(yajl_gen gen, IPCTagState state)
+dump_tag_state(yajl_gen gen, TagState state)
 {
   yajl_gen_map_open(gen);
-  ystr("monitor_number"); yajl_gen_integer(gen, state.mon_num);
   ystr("selected"); yajl_gen_integer(gen, state.selected);
-  ystr("occuped"); yajl_gen_integer(gen, state.occupied);
+  ystr("occupied"); yajl_gen_integer(gen, state.occupied);
   ystr("urgent"); yajl_gen_integer(gen, state.urgent);
   yajl_gen_map_close(gen);
 
@@ -405,16 +357,16 @@ dump_tag_state(yajl_gen gen, IPCTagState state)
 }
 
 static int
-dump_tag_event(yajl_gen gen, IPCTagState old, IPCTagState new)
+dump_tag_event(yajl_gen gen, int mon_num, TagState old, TagState new)
 {
   ystr("tag_change_event");
   yajl_gen_map_open(gen);
 
-  ystr("old");
-  dump_tag_state(gen, old);
+  ystr("monitor_number"); yajl_gen_integer(gen, mon_num);
 
-  ystr("new");
-  dump_tag_state(gen, new);
+  ystr("old"); dump_tag_state(gen, old);
+
+  ystr("new"); dump_tag_state(gen, new);
 
   yajl_gen_map_close(gen);
   return 0;
@@ -933,30 +885,8 @@ ipc_prepare_reply_success(IPCClient *c, int msg_type)
   ipc_prepare_send_message(c, msg_type, msg_len, success_msg);
 }
 
-int
-ipc_update_tag_state(IPCTagState state)
-{
-  IPCTagState *old_state = ipc_tag_state_list_get(state.mon_num);
-
-  if (old_state == NULL) {
-    old_state = ipc_tag_state_new(state.mon_num, 0, 0, 0);
-    ipc_tag_state_list_add(old_state);
-  }
-
-  if (!ipc_tag_state_cmp(old_state, &state)) {
-    fprintf(stderr, "Tag state changed\n");
-    ipc_tag_event(*old_state, state);
-    old_state->selected = state.selected;
-    old_state->occupied = state.occupied;
-    old_state->urgent = state.urgent;
-    return 1;
-  }
-
-  return 0;
-}
-
 void
-ipc_tag_event(IPCTagState old, IPCTagState new)
+ipc_tag_change_event(int mon_num, TagState old, TagState new)
 {
   const unsigned char *buffer;
   size_t len;
@@ -965,10 +895,10 @@ ipc_tag_event(IPCTagState old, IPCTagState new)
   yajl_gen_config(gen, yajl_gen_beautify, 1);
 
   yajl_gen_map_open(gen);
-  dump_tag_event(gen, old, new);
+  dump_tag_event(gen, mon_num, old, new);
   yajl_gen_map_close(gen);
 
-  yajl_gen_status stat = yajl_gen_get_buf(gen, &buffer, &len);
+  yajl_gen_get_buf(gen, &buffer, &len);
 
   for (IPCClient *c = ipc_client_head; c; c = c->next) {
     fprintf(stderr, "Sending tag state event to fd %d\n", c->fd);
@@ -997,13 +927,6 @@ ipc_cleanup(int sock_fd)
 
     free(c);
     c = next;
-  }
-
-  IPCTagState *s = tag_states;
-  while (s) {
-    IPCTagState *next = s->next;
-    free(s);
-    s = next;
   }
 
   shutdown(sock_fd, SHUT_RDWR);

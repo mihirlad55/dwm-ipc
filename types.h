@@ -32,6 +32,13 @@ typedef struct {
   void (*arrange)(Monitor *);
 } Layout;
 
+typedef struct TagState TagState;
+struct TagState {
+  int selected;
+  int occupied;
+  int urgent;
+};
+
 struct Monitor {
   char ltsymbol[16];
   float mfact;
@@ -43,6 +50,7 @@ struct Monitor {
   unsigned int seltags;
   unsigned int sellt;
   unsigned int tagset[2];
+  TagState oldtagstate;
   int showbar;
   int topbar;
   Client *clients;
