@@ -74,8 +74,8 @@ int ipc_command_stoi(const char *command);
 
 int ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[]);
 
-void ipc_prepare_send_message(IPCClient *c, uint8_t msg_type, uint32_t msg_size,
-                              uint8_t *msg);
+void ipc_prepare_send_message(IPCClient *c, const uint8_t msg_type,
+                              const uint32_t msg_size, const char *msg);
 
 int ipc_push_pending(IPCClient *c);
 

@@ -547,8 +547,8 @@ ipc_parse_run_command(const uint8_t *msg, int *argc, Arg **args[])
 }
 
 void
-ipc_prepare_send_message(IPCClient *c, uint8_t msg_type, uint32_t msg_size,
-    uint8_t *msg)
+ipc_prepare_send_message(IPCClient *c, const uint8_t msg_type,
+                         const uint32_t msg_size, const char *msg)
 {
   dwm_ipc_header_t header = {
     .magic = IPC_MAGIC_ARR,
@@ -726,7 +726,7 @@ ipc_prepare_reply_failure(IPCClient *c, int msg_type)
   const char *failure_msg = "{\"result\":\"failure\"}";
   const size_t msg_len = strlen(failure_msg);
 
-  ipc_prepare_send_message(c, msg_type, msg_len, (uint8_t *)failure_msg);
+  ipc_prepare_send_message(c, msg_type, msg_len, failure_msg);
 }
 
 void
@@ -735,7 +735,7 @@ ipc_prepare_reply_success(IPCClient *c, int msg_type)
   const char *success_msg = "{\"result\":\"success\"}";
   const size_t msg_len = strlen(success_msg);
 
-  ipc_prepare_send_message(c, msg_type, msg_len, (uint8_t *)success_msg);
+  ipc_prepare_send_message(c, msg_type, msg_len, success_msg);
 }
 
 int

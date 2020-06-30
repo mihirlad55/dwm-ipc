@@ -1103,7 +1103,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
       if (res != 0) return -1;
 
       fprintf(stderr, "Preparing message for fd %d...\n", fd);
-      ipc_prepare_send_message(c, msg_type, len, (uint8_t*)buffer);
+      ipc_prepare_send_message(c, msg_type, len, (char *)buffer);
 
       ev->events |= EPOLLOUT;
       epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, ev);
