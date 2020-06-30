@@ -18,7 +18,8 @@ enum {
   IPC_TYPE_GET_TAGS = 2,
   IPC_TYPE_GET_LAYOUTS = 3,
   IPC_TYPE_GET_CLIENT = 4,
-  IPC_TYPE_SUBSCRIBE = 5
+  IPC_TYPE_SUBSCRIBE = 5,
+  IPC_TYPE_EVENT = 6
 };
 
 enum {
@@ -39,7 +40,7 @@ enum {
   IPC_COMMAND_QUIT = 14
 };
 
-enum { IPC_EVENT_TAG_CHANGE = 1, IPC_EVENT_WINDOW_CHANGE = 2};
+enum { IPC_EVENT_TAG_CHANGE = 1, IPC_EVENT_WINDOW_CHANGE = 2 };
 
 typedef struct dwm_ipc_header {
   uint8_t magic[IPC_MAGIC_LEN];
