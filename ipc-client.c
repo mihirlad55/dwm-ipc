@@ -9,7 +9,11 @@
 #include <unistd.h>
 
 #define IPC_MAGIC "DWM-IPC"
-#define IPC_MAGIC_LEN 7
+#define IPC_MAGIC_ARR                                                          \
+  { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
+#define IPC_MAGIC_LEN 7 // Not including null char
+
+#define ystr(str) yajl_gen_string(gen, (unsigned char *)str, strlen(str))
 
 enum {
   IPC_TYPE_RUN_COMMAND = 0,
@@ -17,7 +21,8 @@ enum {
   IPC_TYPE_GET_TAGS = 2,
   IPC_TYPE_GET_LAYOUTS = 3,
   IPC_TYPE_GET_CLIENT = 4,
-  IPC_TYPE_SUBSCRIBE = 5
+  IPC_TYPE_SUBSCRIBE = 5,
+  IPC_TYPE_EVENT = 6
 };
 
 enum {
@@ -38,7 +43,9 @@ enum {
   IPC_COMMAND_QUIT = 14
 };
 
-enum { IPC_EVENT_TAG_CHANGE, IPC_EVENT_WINDOW_CHANGE };
+enum { IPC_EVENT_TAG_CHANGE = 1, IPC_EVENT_SELECTED_CLIENT_CHANGE = 2 };
+
+enum { IPC_ACTION_UNSUBSCRIBE = 0, IPC_ACTION_SUBSCRIBE = 1 };
 
 typedef struct dwm_ipc_header {
   uint8_t magic[IPC_MAGIC_LEN];
@@ -46,13 +53,6 @@ typedef struct dwm_ipc_header {
   uint8_t type;
 } __attribute((packed)) dwm_ipc_header_t;
 
-struct ipc_client {
-  int fd;
-  int subscriptions;
-
-  char *buffer;
-  uint32_t buffer_size;
-};
 
 static int ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
                             uint8_t **reply) {
@@ -142,9 +142,6 @@ int main(int argc, char *argv[]) {
   connect(sock, (const struct sockaddr *)&addr, sizeof(struct sockaddr_un));
   puts("Connected to socket");
 
-  dwm_ipc_header_t msg_header;
-  strncpy(msg_header.magic, IPC_MAGIC, IPC_MAGIC_LEN);
-  msg_header.type = IPC_TYPE_SUBSCRIBE;
   /*char *msg = "{\n"
               "  \"client_window_id\": 8388614\n"
               "}";*/
@@ -158,7 +155,12 @@ int main(int argc, char *argv[]) {
     "  \"event\": \"tag_change_event\",\n"
     "  \"action\": \"subscribe\"\n"
     "}";
-  msg_header.size = strlen(msg) + 1;
+
+  dwm_ipc_header_t msg_header = {
+    .magic = IPC_MAGIC_ARR,
+    .type = IPC_TYPE_SUBSCRIBE,
+    .size = strlen(msg) + 1
+  };
 
   uint8_t buffer[sizeof(dwm_ipc_header_t) + msg_header.size];
   memcpy(buffer, &msg_header, sizeof(dwm_ipc_header_t));
@@ -173,6 +175,9 @@ int main(int argc, char *argv[]) {
   ipc_recv_message(sock, &msg_type, &msg_size, &reply);
   printf("%s\n", reply);
 
-  ipc_recv_message(sock, &msg_type, &msg_size, &reply);
-  printf("%s\n", reply);
+  while (1) {
+    ipc_recv_message(sock, &msg_type, &msg_size, &reply);
+    printf("%s\n", reply);
+  }
 }
+
