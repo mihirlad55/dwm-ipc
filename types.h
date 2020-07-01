@@ -55,6 +55,7 @@ struct Monitor {
   int topbar;
   Client *clients;
   Client *sel;
+  Client *lastsel;
   Client *stack;
   Monitor *next;
   Window barwin;

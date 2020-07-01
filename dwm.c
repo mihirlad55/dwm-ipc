@@ -178,6 +178,7 @@ static void updatebarpos(Monitor *m);
 static void updatebars(void);
 static void updateclientlist(void);
 static int updategeom(void);
+static void updatelastsel(void);
 static void updatenumlockmask(void);
 static void updatesizehints(Client *c);
 static void updatestatus(void);
@@ -940,6 +941,7 @@ handlexevent(struct epoll_event *ev)
       if (handler[ev.type]) {
         handler[ev.type](&ev); /* call handler */
         updatetagset();
+        updatelastsel();
       }
     }
   } else if (ev-> events & EPOLLHUP) {
@@ -1045,6 +1047,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
       }
 
       updatetagset();
+      updatelastsel();
       // Free args
       for (int i = 0; i < argc; i++) {
         free(args[i]);
@@ -2206,6 +2209,17 @@ updatetagset(void)
       ipc_tag_change_event(m->num, m->oldtagstate, new_state);
       m->oldtagstate = new_state;
     }
+  }
+}
+
+void
+updatelastsel(void)
+{
+  for (Monitor *m = mons; m; m = m->next) {
+    if (m->lastsel && m->sel && m->lastsel != m->sel)
+      ipc_selected_client_change_event(m->lastsel, m->sel, m->num);
+
+    m->lastsel = m->sel;
   }
 }
 

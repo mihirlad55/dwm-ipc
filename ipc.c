@@ -372,6 +372,23 @@ dump_tag_event(yajl_gen gen, int mon_num, TagState old, TagState new)
   return 0;
 }
 
+static int
+dump_client_change_event(yajl_gen gen, Client *old_client, Client *new_client,
+  int mon_num)
+{
+  ystr("selected_client_change_event");
+  yajl_gen_map_open(gen);
+
+  ystr("moniter_number"); yajl_gen_integer(gen, mon_num);
+
+  ystr("old"); dump_client(gen, old_client);
+
+  ystr("new"); dump_client(gen ,new_client);
+
+  yajl_gen_map_close(gen);
+  return 0;
+}
+
 int
 ipc_init(const char *socket_path, const int p_epoll_fd)
 {
@@ -790,7 +807,7 @@ ipc_event_stoi(const char *subscription)
   if (strcmp(subscription, "tag_change_event") == 0)
     return IPC_EVENT_TAG_CHANGE;
   else if (strcmp(subscription, "window_change_event") == 0)
-    return IPC_EVENT_WINDOW_CHANGE;
+    return IPC_EVENT_SELECTED_CLIENT_CHANGE;
   else
     return -1;
 }
@@ -902,6 +919,31 @@ ipc_tag_change_event(int mon_num, TagState old, TagState new)
 
   for (IPCClient *c = ipc_client_head; c; c = c->next) {
     fprintf(stderr, "Sending tag state event to fd %d\n", c->fd);
+    ipc_prepare_send_message(c, IPC_TYPE_EVENT, len, (char *)buffer);
+  }
+
+  // Not documented, but this frees temp_buffer
+  yajl_gen_free(gen);
+}
+
+void
+ipc_selected_client_change_event(Client *old_client, Client *new_client,
+    int mon_num)
+{
+  const unsigned char *buffer;
+  size_t len;
+
+  yajl_gen gen = yajl_gen_alloc(NULL);
+  yajl_gen_config(gen, yajl_gen_beautify, 1);
+
+  yajl_gen_map_open(gen);
+  dump_client_change_event(gen, old_client, new_client, mon_num);
+  yajl_gen_map_close(gen);
+
+  yajl_gen_get_buf(gen, &buffer, &len);
+
+  for (IPCClient *c = ipc_client_head; c; c = c->next) {
+    fprintf(stderr, "Sending selected client change event to fd %d\n", c->fd);
     ipc_prepare_send_message(c, IPC_TYPE_EVENT, len, (char *)buffer);
   }
 

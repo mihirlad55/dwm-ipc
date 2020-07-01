@@ -41,7 +41,7 @@ enum {
   IPC_COMMAND_QUIT = 14
 };
 
-enum { IPC_EVENT_TAG_CHANGE = 1, IPC_EVENT_WINDOW_CHANGE = 2 };
+enum { IPC_EVENT_TAG_CHANGE = 1, IPC_EVENT_SELECTED_CLIENT_CHANGE = 2 };
 
 enum { IPC_ACTION_UNSUBSCRIBE = 0, IPC_ACTION_SUBSCRIBE = 1 };
 
@@ -105,6 +105,9 @@ int ipc_parse_subscribe(const uint8_t *msg, int *action);
 int ipc_subscribe(IPCClient *c, int event, int action);
 
 void ipc_tag_change_event(int mon_num, TagState old_state, TagState new_state);
+
+void ipc_selected_client_change_event(Client *old_client, Client *new_client,
+                                      int mon_num);
 
 void ipc_prepare_reply_failure(IPCClient *c, int msg_type);
 
