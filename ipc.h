@@ -3,8 +3,8 @@
 
 #include "types.h"
 #include <stdint.h>
-#include <yajl/yajl_gen.h>
 #include <sys/epoll.h>
+#include <yajl/yajl_gen.h>
 
 #define IPC_MAGIC "DWM-IPC"
 #define IPC_MAGIC_ARR                                                          \
@@ -94,7 +94,7 @@ int ipc_get_layouts(unsigned char **buffer, size_t *len, const Layout layouts[],
 
 int ipc_parse_get_client(const uint8_t *msg, Window *win);
 
-int ipc_get_client(unsigned char **buffer, size_t *len, Client *c, int mon_num);
+int ipc_get_client(unsigned char **buffer, size_t *len, Client *c);
 
 int ipc_is_client_registered(int fd);
 
