@@ -71,15 +71,21 @@ int ipc_drop_client(int fd);
 
 int ipc_command_stoi(const char *command);
 
-int ipc_parse_run_command(const uint8_t *msg, char **name, int *argc,
-                          Arg *args[]);
-
-int ipc_run_command(const char *name, Arg *args, const int argc);
-
 void ipc_prepare_send_message(IPCClient *c, const uint8_t msg_type,
                               const uint32_t msg_size, const char *msg);
 
 int ipc_push_pending(IPCClient *c);
+
+void ipc_prepare_reply_failure(IPCClient *c, int msg_type);
+
+void ipc_prepare_reply_success(IPCClient *c, int msg_type);
+
+void ipc_cleanup(int socket_fd);
+
+int ipc_parse_run_command(const uint8_t *msg, char **name, int *argc,
+                          Arg *args[]);
+
+int ipc_run_command(const char *name, Arg *args, const int argc);
 
 void ipc_get_monitors(IPCClient *c, Monitor *selmon);
 
@@ -104,11 +110,5 @@ void ipc_tag_change_event(int mon_num, TagState old_state, TagState new_state);
 
 void ipc_selected_client_change_event(Client *old_client, Client *new_client,
                                       int mon_num);
-
-void ipc_prepare_reply_failure(IPCClient *c, int msg_type);
-
-void ipc_prepare_reply_success(IPCClient *c, int msg_type);
-
-void ipc_cleanup(int socket_fd);
 
 #endif /* IPC_H_ */
