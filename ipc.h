@@ -11,8 +11,6 @@
   { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
 #define IPC_MAGIC_LEN 7 // Not including null char
 
-#define ystr(str) yajl_gen_string(gen, (unsigned char *)str, strlen(str))
-
 enum {
   IPC_TYPE_RUN_COMMAND = 0,
   IPC_TYPE_GET_MONITORS = 1,
