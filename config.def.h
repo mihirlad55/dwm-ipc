@@ -97,6 +97,24 @@ static Key keys[] = {
 	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
 };
 
+static IPCCommand ipccommands[] = {
+  { "view",           {view},           1 },
+  { "toggleview",     {toggleview},     1 },
+  { "tag",            {tag},            1 },
+  { "toggletag",      {toggletag},      1 },
+  { "tagmon",         {tagmon},         1 },
+  { "focusmon",       {focusmon},       1 },
+  { "focusstack",     {focusstack},     1 },
+  { "zoom",           {zoom},           1 },
+  { "spawn",          {spawn},          1 },
+  { "incnmaster",     {incnmaster},     1 },
+  { "killclient",     {killclient},     1 },
+  { "togglefloating", {togglefloating}, 1 },
+  { "setmfact",       {setmfact},       1 },
+  { "setlayout",      {setlayout},      1 },
+  { "quit",           {quit},           1 },
+};
+
 /* button definitions */
 /* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */
 static Button buttons[] = {

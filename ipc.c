@@ -13,6 +13,8 @@
 
 static IPCClient *ipc_client_head = NULL;
 static int epoll_fd = -1;
+IPCCommand *ipc_commands;
+int ipc_commands_len;
 
 static int
 ipc_create_socket(const char *filename)
@@ -439,12 +441,16 @@ ipc_reply_prepare_send_message(yajl_gen gen, IPCClient *c, uint32_t msg_type)
 }
 
 int
-ipc_init(const char *socket_path, const int p_epoll_fd)
+ipc_init(const char *socket_path, const int p_epoll_fd,
+    IPCCommand commands[], int commands_len)
 {
   struct epoll_event event;
 
   int socket_fd = ipc_create_socket(socket_path);
   if (socket_fd < 0) return -1;;
+
+  ipc_commands = commands;
+  ipc_commands_len = commands_len;
 
   epoll_fd = p_epoll_fd;
 
@@ -521,7 +527,6 @@ ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size, uint8_t **msg)
     return -1;
   }
 
-
   fprintf(stderr, "[fd %d] ", fd);
   fprintf(stderr, "Received message: '%s' ", (char *)(*msg));
   fprintf(stderr, "Message type: %" PRIu8 " ", *msg_type);
@@ -552,44 +557,8 @@ ipc_drop_client(int fd)
 }
 
 int
-ipc_command_stoi(const char* command)
-{
-  if (strcmp(command, "view") == 0)
-    return IPC_COMMAND_VIEW;
-  else if (strcmp(command, "toggleview") == 0)
-    return IPC_COMMAND_TOGGLE_VIEW;
-  else if (strcmp(command, "tag") == 0)
-    return IPC_COMMAND_TAG;
-  else if (strcmp(command, "toggletag") == 0)
-    return IPC_COMMAND_TOGGLE_TAG;
-  else if (strcmp(command, "tagmon") == 0)
-    return IPC_COMMAND_TAG_MONITOR;
-  else if (strcmp(command, "focusmon") == 0)
-    return IPC_COMMAND_FOCUS_MONITOR;
-  else if (strcmp(command, "focusstack") == 0)
-    return IPC_COMMAND_FOCUS_STACK;
-  else if (strcmp(command, "zoom") == 0)
-    return IPC_COMMAND_ZOOM;
-  else if (strcmp(command, "spawn") == 0)
-    return IPC_COMMAND_SPAWN;
-  else if (strcmp(command, "incnmaster") == 0)
-    return IPC_COMMAND_INC_NMASTER;
-  else if (strcmp(command, "killclient") == 0)
-    return IPC_COMMAND_KILL_CLIENT;
-  else if (strcmp(command, "togglefloating") == 0)
-    return IPC_COMMAND_TOGGLE_FLOATING;
-  else if (strcmp(command, "setmfact") == 0)
-    return IPC_COMMAND_SET_MFACT;
-  else if (strcmp(command, "setlayout") == 0)
-    return IPC_COMMAND_SET_LAYOUT;
-  else if (strcmp(command, "quit") == 0)
-    return IPC_COMMAND_QUIT;
-  else
-    return -1;
-}
-
-int
-ipc_parse_run_command(const uint8_t *msg, int *argc, Arg *args[])
+ipc_parse_run_command(const uint8_t *msg, char **name, int *argc,
+    Arg *args[])
 {
   char error_buffer[100];
   yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
@@ -614,11 +583,10 @@ ipc_parse_run_command(const uint8_t *msg, int *argc, Arg *args[])
   }
 
   const char* command = YAJL_GET_STRING(command_val);
+  const size_t command_size = sizeof(char) * (strlen(command) + 1);
+  *name = (char*)malloc(command_size);
+  strcpy(*name, command);
   fprintf(stderr, "Received command: %s\n", command);
-
-  int command_num;
-  if ((command_num = ipc_command_stoi(command)) < 0)
-      return -1;
 
   const char *args_path[] = {"args", 0};
   yajl_val args_val = yajl_tree_get(parent, args_path, yajl_t_array);
@@ -665,7 +633,29 @@ ipc_parse_run_command(const uint8_t *msg, int *argc, Arg *args[])
 
   yajl_tree_free(parent);
 
-  return command_num;
+  return 0;
+}
+
+int
+ipc_run_command(const char *name, Arg *args, const int argc)
+{
+  for (int i = 0; i < ipc_commands_len; i++) {
+    IPCCommand *c = ipc_commands + i;
+    if (strcmp(c->command_name, name) == 0) {
+
+      if (argc != c->argc)
+        return -1;
+      else if (argc == 1) {
+        c->func.single_param_func(args);
+        return 0;
+      } else if (argc > 1) {
+        c->func.array_param_func(args, argc);
+        return 0;
+      }
+    }
+  }
+
+  return -2;
 }
 
 void

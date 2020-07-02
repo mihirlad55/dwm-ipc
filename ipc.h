@@ -23,24 +23,6 @@ enum {
   IPC_TYPE_EVENT = 6
 };
 
-enum {
-  IPC_COMMAND_VIEW = 0,
-  IPC_COMMAND_TOGGLE_VIEW = 1,
-  IPC_COMMAND_TAG = 2,
-  IPC_COMMAND_TOGGLE_TAG = 3,
-  IPC_COMMAND_TAG_MONITOR = 4,
-  IPC_COMMAND_FOCUS_MONITOR = 5,
-  IPC_COMMAND_FOCUS_STACK = 6,
-  IPC_COMMAND_ZOOM = 7,
-  IPC_COMMAND_SPAWN = 8,
-  IPC_COMMAND_INC_NMASTER = 9,
-  IPC_COMMAND_KILL_CLIENT = 10,
-  IPC_COMMAND_TOGGLE_FLOATING = 11,
-  IPC_COMMAND_SET_MFACT = 12,
-  IPC_COMMAND_SET_LAYOUT = 13,
-  IPC_COMMAND_QUIT = 14
-};
-
 enum { IPC_EVENT_TAG_CHANGE = 1, IPC_EVENT_SELECTED_CLIENT_CHANGE = 2 };
 
 enum { IPC_ACTION_UNSUBSCRIBE = 0, IPC_ACTION_SUBSCRIBE = 1 };
@@ -64,7 +46,19 @@ struct IPCClient {
   IPCClient *prev;
 };
 
-int ipc_init(const char *socket_path, const int epoll_fd);
+typedef union {
+  void (*single_param_func)(const Arg *);
+  void (*array_param_func)(const Arg *, int);
+} ArgFunction;
+
+typedef struct {
+  const char *command_name;
+  ArgFunction func;
+  const unsigned int argc;
+} IPCCommand;
+
+int ipc_init(const char *socket_path, const int epoll_fd, IPCCommand commands[],
+             int commands_len);
 
 IPCClient *ipc_list_get_client(int fd);
 
@@ -77,7 +71,10 @@ int ipc_drop_client(int fd);
 
 int ipc_command_stoi(const char *command);
 
-int ipc_parse_run_command(const uint8_t *msg, int *argc, Arg *args[]);
+int ipc_parse_run_command(const uint8_t *msg, char **name, int *argc,
+                          Arg *args[]);
+
+int ipc_run_command(const char *name, Arg *args, const int argc);
 
 void ipc_prepare_send_message(IPCClient *c, const uint8_t msg_type,
                               const uint32_t msg_size, const char *msg);

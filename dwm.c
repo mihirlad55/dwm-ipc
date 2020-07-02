@@ -976,79 +976,37 @@ int handleipcevent(int fd, struct epoll_event *ev)
     if (c->buffer_size) ipc_push_pending(c);
   } else if (ev->events & EPOLLIN) {
     IPCClient *c = ipc_list_get_client(fd);
-
-    fprintf(stderr, "Received message from fd %d\n", fd);
     uint8_t msg_type;
     uint32_t msg_size;
     uint8_t *msg;
 
+    fprintf(stderr, "Received message from fd %d\n", fd);
     int ret = ipc_read_client(fd, &msg_type, &msg_size, &msg);
+
     if (ret < -1)
       return -1;
 
     if (msg_type == IPC_TYPE_RUN_COMMAND) {
-      int command_num;
       int argc;
       Arg* args;
-      if ((command_num = ipc_parse_run_command(msg, &argc, &args)) < 0) {
+      char *command_name;
+      if (ipc_parse_run_command(msg, &command_name, &argc, &args) < 0) {
         ipc_prepare_reply_failure(c, msg_type);
         return -1;
       }
 
       // TODO: Implement additional args for specifying client
       // TODO: Add argument safety checking
-      // TODO: Reply to client with result
-      switch (command_num) {
-        case IPC_COMMAND_VIEW:
-          view(args[0]);
-          break;
-        case IPC_COMMAND_TOGGLE_VIEW:
-          toggleview(args[0]);
-          break;
-        case IPC_COMMAND_TAG:
-          tag(args[0]);
-          break;
-        case IPC_COMMAND_TOGGLE_TAG:
-          toggletag(args[0]);
-          break;
-        case IPC_COMMAND_TAG_MONITOR:
-          tagmon(args[0]);
-          break;
-        case IPC_COMMAND_FOCUS_MONITOR:
-          focusmon(args[0]);
-          break;
-        case IPC_COMMAND_FOCUS_STACK:
-          focusstack(args[0]);
-          break;
-        case IPC_COMMAND_ZOOM:
-          zoom(args[0]);
-          break;
-        case IPC_COMMAND_SPAWN:
-          spawn(args[0]);
-          break;
-        case IPC_COMMAND_INC_NMASTER:
-          incnmaster(args[0]);
-          break;
-        case IPC_COMMAND_KILL_CLIENT:
-          killclient(args[0]);
-          break;
-        case IPC_COMMAND_TOGGLE_FLOATING:
-          togglefloating(args[0]);
-          break;
-        case IPC_COMMAND_SET_MFACT:
-          setmfact(args[0]);
-          break;
-        case IPC_COMMAND_SET_LAYOUT:
-          setlayout(args[0]);
-          break;
-        case IPC_COMMAND_QUIT:
-          quit(args[0]);
-          break;
+      if (ipc_run_command(command_name, args, argc) < 0) {
+        ipc_prepare_reply_failure(c, msg_type);
+        free(args);
+        return -1;
       }
 
       updatetagset();
       updatelastsel();
       free(args);
+      free(command_name);
     } else if (msg_type == IPC_TYPE_GET_MONITORS ||
                msg_type == IPC_TYPE_GET_TAGS ||
                msg_type == IPC_TYPE_GET_LAYOUTS ||
@@ -1777,7 +1735,8 @@ setupepoll(void)
     exit(1);
   }
 
-  sock_fd = ipc_init(DWM_SOCKET_PATH, epoll_fd);
+  sock_fd = ipc_init(DWM_SOCKET_PATH, epoll_fd, ipccommands,
+      LENGTH(ipccommands));
   fprintf(stderr, "IPC Socket is fd %d\n", sock_fd);
 }
 
