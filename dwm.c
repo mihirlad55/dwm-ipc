@@ -989,7 +989,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
     if (msg_type == IPC_TYPE_RUN_COMMAND) {
       int command_num;
       int argc;
-      Arg** args;
+      Arg* args;
       if ((command_num = ipc_parse_run_command(msg, &argc, &args)) < 0) {
         ipc_prepare_reply_failure(c, msg_type);
         return -1;
@@ -1048,10 +1048,6 @@ int handleipcevent(int fd, struct epoll_event *ev)
 
       updatetagset();
       updatelastsel();
-      // Free args
-      for (int i = 0; i < argc; i++) {
-        free(args[i]);
-      }
       free(args);
     } else if (msg_type == IPC_TYPE_GET_MONITORS ||
                msg_type == IPC_TYPE_GET_TAGS ||
