@@ -315,8 +315,8 @@ ipc_drop_client(int fd)
   return res;
 }
 
-int
-ipc_parse_run_command(const uint8_t *msg, char **name, int *argc,
+static int
+ipc_parse_run_command(const char *msg, char **name, unsigned int *argc,
     Arg *args[])
 {
   char error_buffer[100];
@@ -359,8 +359,7 @@ ipc_parse_run_command(const uint8_t *msg, char **name, int *argc,
 
   if (*argc == 0) {
     *args = (Arg*)(malloc(sizeof(Arg)));
-    args[0] = (Arg*)(malloc(sizeof(Arg)));
-    args[0]->f = 0;
+    (*args)[0].f = 0;
     argc++;
   } else if (*argc > 0) {
     *args = (Arg*)calloc(*argc, sizeof(Arg));
@@ -396,24 +395,42 @@ ipc_parse_run_command(const uint8_t *msg, char **name, int *argc,
 }
 
 int
-ipc_run_command(const char *name, Arg *args, const int argc)
+ipc_run_command(IPCClient *ipc_client, const char *msg)
 {
+  char *name;
+  unsigned int argc;
+  Arg *args;
+
+  // TODO: Implement additional args for specifying client
+  // TODO: Add argument safety checking
+  if (ipc_parse_run_command(msg, &name, &argc, &args) < 0) {
+    ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND);
+    return -1;
+  }
+
   for (int i = 0; i < ipc_commands_len; i++) {
     IPCCommand *c = ipc_commands + i;
     if (strcmp(c->command_name, name) == 0) {
-
-      if (argc != c->argc)
+      if (argc != c->argc) {
+        free(args);
+        free(name);
+        ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND);
         return -1;
-      else if (argc == 1) {
+      } else if (argc == 1) {
         c->func.single_param(args);
         return 0;
       } else if (argc > 1) {
         c->func.array_param(args, argc);
+        free(args);
+        free(name);
         return 0;
       }
     }
   }
 
+  ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND);
+  free(args);
+  free(name);
   return -2;
 }
 
@@ -562,7 +579,7 @@ ipc_event_stoi(const char *subscription)
 }
 
 int
-ipc_parse_subscribe(const uint8_t *msg, int *subscribe)
+ipc_parse_subscribe(const char *msg, int *subscribe)
 {
   char error_buffer[100];
   yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
@@ -618,8 +635,15 @@ ipc_parse_subscribe(const uint8_t *msg, int *subscribe)
 }
 
 int
-ipc_subscribe(IPCClient *c, int event, int action)
+ipc_subscribe(IPCClient *c, const char *msg)
 {
+  int action;
+
+  int event = ipc_parse_subscribe(msg, &action);
+
+  if (event < 0)
+    return -1;
+
   if (action == IPC_ACTION_SUBSCRIBE) {
     c->subscriptions |= event;
   } else if (action == IPC_ACTION_UNSUBSCRIBE) {

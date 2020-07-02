@@ -68,10 +68,7 @@ void ipc_prepare_reply_success(IPCClient *c, int msg_type);
 
 void ipc_cleanup(int socket_fd);
 
-int ipc_parse_run_command(const uint8_t *msg, char **name, int *argc,
-                          Arg *args[]);
-
-int ipc_run_command(const char *name, Arg *args, const int argc);
+int ipc_run_command(IPCClient *ipc_client, const char *msg);
 
 void ipc_get_monitors(IPCClient *c, Monitor *selmon);
 
@@ -88,9 +85,7 @@ int ipc_is_client_registered(int fd);
 
 int ipc_event_stoi(const char *subscription);
 
-int ipc_parse_subscribe(const uint8_t *msg, int *action);
-
-int ipc_subscribe(IPCClient *c, int event, int action);
+int ipc_subscribe(IPCClient *c, const char* msg);
 
 void ipc_tag_change_event(int mon_num, TagState old_state, TagState new_state);
 

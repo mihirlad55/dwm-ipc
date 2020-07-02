@@ -967,87 +967,53 @@ handlesockevent(struct epoll_event *ev)
 
 int handleipcevent(int fd, struct epoll_event *ev)
 {
+  IPCClient *c = ipc_get_client(fd);
+
   if (ev->events & EPOLLHUP) {
     fprintf(stderr, "EPOLLHUP received from client at fd %d\n", fd);
     ipc_drop_client(fd);
   } else if (ev->events & EPOLLOUT) {
     fprintf(stderr, "Sending message to client at fd %d...\n", fd);
-    IPCClient *c = ipc_get_client(fd);
     if (c->buffer_size) ipc_push_pending(c);
   } else if (ev->events & EPOLLIN) {
-    IPCClient *c = ipc_get_client(fd);
     uint8_t msg_type;
     uint32_t msg_size;
     uint8_t *msg;
 
     fprintf(stderr, "Received message from fd %d\n", fd);
-    int ret = ipc_read_client(fd, &msg_type, &msg_size, &msg);
-
-    if (ret < -1)
+    if (ipc_read_client(fd, &msg_type, &msg_size, &msg) < 0)
       return -1;
 
-    if (msg_type == IPC_TYPE_RUN_COMMAND) {
-      int argc;
-      Arg* args;
-      char *command_name;
-      if (ipc_parse_run_command(msg, &command_name, &argc, &args) < 0) {
-        ipc_prepare_reply_failure(c, msg_type);
+    if (msg_type == IPC_TYPE_GET_MONITORS)
+      ipc_get_monitors(c, mons);
+    else if (msg_type == IPC_TYPE_GET_TAGS)
+      ipc_get_tags(c, tags, LENGTH(tags));
+    else if (msg_type == IPC_TYPE_GET_LAYOUTS)
+      ipc_get_layouts(c, layouts, LENGTH(layouts));
+    else if (msg_type == IPC_TYPE_RUN_COMMAND) {
+      if (ipc_run_command(c, (const char*)msg) < 0)
         return -1;
-      }
-
-      // TODO: Implement additional args for specifying client
-      // TODO: Add argument safety checking
-      if (ipc_run_command(command_name, args, argc) < 0) {
-        ipc_prepare_reply_failure(c, msg_type);
-        free(args);
-        return -1;
-      }
-
       updatetagset();
       updatelastsel();
-      free(args);
-      free(command_name);
-    } else if (msg_type == IPC_TYPE_GET_MONITORS ||
-               msg_type == IPC_TYPE_GET_TAGS ||
-               msg_type == IPC_TYPE_GET_LAYOUTS ||
-               msg_type == IPC_TYPE_GET_DWM_CLIENT) {
-      int res;
+    } else if (msg_type == IPC_TYPE_GET_DWM_CLIENT) {
+      Client *dwm_c;
+      Window win;
 
-      switch (msg_type) {
-        Client *dwm_c;
-        Window win;
-        case IPC_TYPE_GET_MONITORS:
-          ipc_get_monitors(c, mons);
-          break;
-        case IPC_TYPE_GET_TAGS:
-          ipc_get_tags(c, tags, LENGTH(tags));
-          break;
-        case IPC_TYPE_GET_LAYOUTS:
-          ipc_get_layouts(c, layouts, LENGTH(layouts));
-          break;
-        case IPC_TYPE_GET_DWM_CLIENT:
-          res = ipc_parse_get_dwm_client(msg, &win);
-          if (res == 0) {
-            dwm_c = wintoclient(win);
-            ipc_get_dwm_client(c, dwm_c);
-          }
-          break;
-      }
-
-      if (res != 0) return -1;
+      if (ipc_parse_get_dwm_client(msg, &win) == 0) {
+        dwm_c = wintoclient(win);
+        ipc_get_dwm_client(c, dwm_c);
+      } else
+        return -1;
     } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
-      int action;
-      int event = ipc_parse_subscribe(msg, &action);
-
-      if (event < 0) return -1;
-
-      if (ipc_subscribe(c, event, action) < 0) return -1;
+      if (ipc_subscribe(c, (const char*)msg) < 0)
+        return -1;
     } else {
       fprintf(stderr, "Invalid message type received from fd %d", fd);
+      // TODO: Add reason for failure
+      ipc_prepare_reply_failure(c, msg_type);
     }
 
     free(msg);
-
   } else {
     fprintf(stderr, "Epoll event returned %d from fd %d\n", ev->events, fd);
     return -1;
