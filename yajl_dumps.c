@@ -158,7 +158,8 @@ dump_tag_state(yajl_gen gen, TagState state)
 }
 
 int
-dump_tag_event(yajl_gen gen, int mon_num, TagState old_state, TagState new_state)
+dump_tag_event(yajl_gen gen, int mon_num, TagState old_state,
+        TagState new_state)
 {
   yajl_gen_map_open(gen);
 
