@@ -399,7 +399,7 @@ ipc_accept_client(int sock_fd, struct epoll_event *event)
 
     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &nc->event);
 
-    ipc_list_add_client(ipc_clients, nc);
+    ipc_list_add_client(&ipc_clients, nc);
 
     fprintf(stderr, "%s%d\n", "New client at fd: ", fd);
   }
@@ -443,7 +443,7 @@ ipc_drop_client(int fd)
     IPCClient *c = ipc_list_get_client(ipc_clients, fd);
 
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &ev);
-    ipc_list_remove_client(ipc_clients, c);
+    ipc_list_remove_client(&ipc_clients, c);
     free(c);
 
     fprintf(stderr, "Successfully removed client on fd %d\n", fd);

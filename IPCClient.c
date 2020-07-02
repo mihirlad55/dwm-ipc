@@ -19,15 +19,15 @@ ipc_client_new(int fd)
 }
 
 void
-ipc_list_add_client(IPCClientList list, IPCClient *nc)
+ipc_list_add_client(IPCClientList *list, IPCClient *nc)
 {
   fprintf(stderr, "Adding client with fd %d to list\n", nc->fd);
 
-  if (list == NULL) {
-    list = nc;
+  if (*list == NULL) {
+    *list = nc;
   } else {
     IPCClient *c;
-    for (c = list; c && c->next; c = c->next)
+    for (c = *list; c && c->next; c = c->next)
       ;
     c->next = nc;
     nc->prev = c;
@@ -35,9 +35,9 @@ ipc_list_add_client(IPCClientList list, IPCClient *nc)
 }
 
 void
-ipc_list_remove_client(IPCClientList list, IPCClient *c)
+ipc_list_remove_client(IPCClientList *list, IPCClient *c)
 {
-  for (c = list; c && c->next; c = c->next)
+  for (c = *list; c && c->next; c = c->next)
     ;
 
   IPCClient *cprev = c->prev;
@@ -45,8 +45,8 @@ ipc_list_remove_client(IPCClientList list, IPCClient *c)
 
   if (cprev != NULL) cprev->next = c->next;
   if (cnext != NULL) cnext->prev = c->prev;
-  if (c == list)
-    list = c->next;
+  if (c == *list)
+    *list = c->next;
 }
 
 IPCClient*

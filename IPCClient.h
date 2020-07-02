@@ -22,9 +22,9 @@ typedef IPCClient* IPCClientList;
 
 IPCClient* ipc_client_new(int fd);
 
-void ipc_list_add_client(IPCClientList list, IPCClient *nc);
+void ipc_list_add_client(IPCClientList *list, IPCClient *nc);
 
-void ipc_list_remove_client(IPCClientList list, IPCClient *c);
+void ipc_list_remove_client(IPCClientList *list, IPCClient *c);
 
 IPCClient* ipc_list_get_client(IPCClientList list, int fd);
 
