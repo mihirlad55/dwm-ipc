@@ -166,7 +166,7 @@ ipc_event_init_message(yajl_gen *gen)
 }
 
 static void
-ipc_event_prepare_send_message(yajl_gen gen)
+ipc_event_prepare_send_message(yajl_gen gen, IPCEvent event)
 {
   const unsigned char *buffer;
   size_t len;
@@ -174,8 +174,10 @@ ipc_event_prepare_send_message(yajl_gen gen)
   yajl_gen_get_buf(gen, &buffer, &len);
 
   for (IPCClient *c = ipc_clients; c; c = c->next) {
-    fprintf(stderr, "Sending selected client change event to fd %d\n", c->fd);
-    ipc_prepare_send_message(c, IPC_TYPE_EVENT, len, (char *)buffer);
+    if (c->subscriptions & event) {
+      fprintf(stderr, "Sending selected client change event to fd %d\n", c->fd);
+      ipc_prepare_send_message(c, IPC_TYPE_EVENT, len, (char *)buffer);
+    }
   }
 
   // Not documented, but this frees temp_buffer
@@ -649,14 +651,17 @@ ipc_subscribe(IPCClient *c, const char *msg)
     return -1;
 
   if (action == IPC_ACTION_SUBSCRIBE) {
+    fprintf(stderr, "Subscribing client on fd %d to %d", c->fd, event);
     c->subscriptions |= event;
   } else if (action == IPC_ACTION_UNSUBSCRIBE) {
+    fprintf(stderr, "Unsubscribing client on fd %d to %d", c->fd, event);
     c->subscriptions ^= event;
   } else {
     ipc_prepare_reply_failure(c, IPC_TYPE_SUBSCRIBE);
     return -1;
   }
 
+  fprintf(stderr, "Failed to subscribe client on fd %d to %d", c->fd, event);
   ipc_prepare_reply_success(c, IPC_TYPE_SUBSCRIBE);
   return 0;
 }
@@ -685,7 +690,7 @@ ipc_tag_change_event(int mon_num, TagState old, TagState new)
   yajl_gen gen;
   ipc_event_init_message(&gen);
   dump_tag_event(gen, mon_num, old, new);
-  ipc_event_prepare_send_message(gen);
+  ipc_event_prepare_send_message(gen, IPC_EVENT_TAG_CHANGE);
 }
 
 void
@@ -695,7 +700,7 @@ ipc_selected_client_change_event(Client *old_client, Client *new_client,
   yajl_gen gen;
   ipc_event_init_message(&gen);
   dump_client_change_event(gen, old_client, new_client, mon_num);
-  ipc_event_prepare_send_message(gen);
+  ipc_event_prepare_send_message(gen, IPC_EVENT_SELECTED_CLIENT_CHANGE);
 }
 
 int
