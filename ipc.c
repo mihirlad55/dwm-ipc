@@ -364,6 +364,8 @@ dump_tag_state(yajl_gen gen, TagState state)
 static int
 dump_tag_event(yajl_gen gen, int mon_num, TagState old, TagState new)
 {
+  yajl_gen_map_open(gen);
+
   ystr("tag_change_event");
   yajl_gen_map_open(gen);
 
@@ -374,6 +376,9 @@ dump_tag_event(yajl_gen gen, int mon_num, TagState old, TagState new)
   ystr("new"); dump_tag_state(gen, new);
 
   yajl_gen_map_close(gen);
+
+  yajl_gen_map_close(gen);
+
   return 0;
 }
 
@@ -381,6 +386,8 @@ static int
 dump_client_change_event(yajl_gen gen, Client *old_client, Client *new_client,
   int mon_num)
 {
+  yajl_gen_map_open(gen);
+
   ystr("selected_client_change_event");
   yajl_gen_map_open(gen);
 
@@ -388,9 +395,12 @@ dump_client_change_event(yajl_gen gen, Client *old_client, Client *new_client,
 
   ystr("old"); dump_client(gen, old_client);
 
-  ystr("new"); dump_client(gen ,new_client);
+  ystr("new"); dump_client(gen, new_client);
 
   yajl_gen_map_close(gen);
+
+  yajl_gen_map_close(gen);
+
   return 0;
 }
 
@@ -399,8 +409,6 @@ ipc_event_init_message(yajl_gen *gen)
 {
   *gen = yajl_gen_alloc(NULL);
   yajl_gen_config(*gen, yajl_gen_beautify, 1);
-
-  yajl_gen_map_open(*gen);
 }
 
 static void
@@ -408,8 +416,6 @@ ipc_event_prepare_send_message(yajl_gen gen)
 {
   const unsigned char *buffer;
   size_t len;
-
-  yajl_gen_map_close(gen);
 
   yajl_gen_get_buf(gen, &buffer, &len);
 
