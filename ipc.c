@@ -13,8 +13,8 @@
 
 static IPCClient *ipc_clients = NULL;
 static int epoll_fd = -1;
-IPCCommand *ipc_commands;
-int ipc_commands_len;
+static IPCCommand *ipc_commands;
+static int ipc_commands_len;
 
 static int
 ipc_create_socket(const char *filename)
