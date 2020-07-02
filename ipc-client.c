@@ -13,39 +13,26 @@
   { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
 #define IPC_MAGIC_LEN 7 // Not including null char
 
-#define ystr(str) yajl_gen_string(gen, (unsigned char *)str, strlen(str))
-
-enum {
+typedef enum IPCMessageType {
   IPC_TYPE_RUN_COMMAND = 0,
   IPC_TYPE_GET_MONITORS = 1,
   IPC_TYPE_GET_TAGS = 2,
   IPC_TYPE_GET_LAYOUTS = 3,
-  IPC_TYPE_GET_CLIENT = 4,
+  IPC_TYPE_GET_DWM_CLIENT = 4,
   IPC_TYPE_SUBSCRIBE = 5,
   IPC_TYPE_EVENT = 6
-};
+} IPCMessageType;
 
-enum {
-  IPC_COMMAND_VIEW = 0,
-  IPC_COMMAND_TOGGLE_VIEW = 1,
-  IPC_COMMAND_TAG = 2,
-  IPC_COMMAND_TOGGLE_TAG = 3,
-  IPC_COMMAND_TAG_MONITOR = 4,
-  IPC_COMMAND_FOCUS_MONITOR = 5,
-  IPC_COMMAND_FOCUS_STACK = 6,
-  IPC_COMMAND_ZOOM = 7,
-  IPC_COMMAND_SPAWN = 8,
-  IPC_COMMAND_INC_NMASTER = 9,
-  IPC_COMMAND_KILL_CLIENT = 10,
-  IPC_COMMAND_TOGGLE_FLOATING = 11,
-  IPC_COMMAND_SET_MFACT = 12,
-  IPC_COMMAND_SET_LAYOUT = 13,
-  IPC_COMMAND_QUIT = 14
-};
+typedef enum IPCEvent {
+  IPC_EVENT_TAG_CHANGE = 1,
+  IPC_EVENT_SELECTED_CLIENT_CHANGE = 2,
+  IPC_EVENT_LAYOUT_CHANGE = 4
+} IPCEvent;
 
-enum { IPC_EVENT_TAG_CHANGE = 1, IPC_EVENT_SELECTED_CLIENT_CHANGE = 2 };
-
-enum { IPC_ACTION_UNSUBSCRIBE = 0, IPC_ACTION_SUBSCRIBE = 1 };
+typedef enum IPCSubscriptionAction {
+  IPC_ACTION_UNSUBSCRIBE = 0,
+  IPC_ACTION_SUBSCRIBE = 1
+} IPCSubscriptionAction;
 
 typedef struct dwm_ipc_header {
   uint8_t magic[IPC_MAGIC_LEN];
@@ -152,7 +139,7 @@ int main(int argc, char *argv[]) {
     "}";*/
   char *msg =
     "{\n"
-    "  \"event\": \"tag_change_event\",\n"
+    "  \"event\": \"layout_change_event\",\n"
     "  \"action\": \"subscribe\"\n"
     "}";
 
