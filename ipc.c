@@ -11,7 +11,7 @@
 
 #include "ipc.h"
 
-static IPCClient *ipc_client_head = NULL;
+static IPCClient *ipc_clients = NULL;
 static int epoll_fd = -1;
 IPCCommand *ipc_commands;
 int ipc_commands_len;
@@ -78,11 +78,12 @@ static void
 ipc_list_add_client(IPCClient *nc)
 {
   fprintf(stderr, "Adding client with fd %d to list\n", nc->fd);
-  if (ipc_client_head == NULL) {
-    ipc_client_head = nc;
+  if (ipc_clients == NULL) {
+    ipc_clients = nc;
   } else {
     IPCClient *c;
-    for (c = ipc_client_head; c && c->next; c = c->next);
+    for (c = ipc_clients; c && c->next; c = c->next)
+      ;
     c->next = nc;
     nc->prev = c;
   }
@@ -91,14 +92,16 @@ ipc_list_add_client(IPCClient *nc)
 static void
 ipc_list_remove_client(IPCClient *c)
 {
-  for (c = ipc_client_head; c && c->next; c = c->next);
+  for (c = ipc_clients; c && c->next; c = c->next)
+    ;
 
   IPCClient *cprev = c->prev;
   IPCClient *cnext = c->next;
 
   if (cprev != NULL) cprev->next = c->next;
   if (cnext != NULL) cnext->prev = c->prev;
-  if (c == ipc_client_head) ipc_client_head = c->next;
+  if (c == ipc_clients)
+    ipc_clients = c->next;
 }
 
 static int
@@ -410,7 +413,7 @@ ipc_event_prepare_send_message(yajl_gen gen)
 
   yajl_gen_get_buf(gen, &buffer, &len);
 
-  for (IPCClient *c = ipc_client_head; c; c = c->next) {
+  for (IPCClient *c = ipc_clients; c; c = c->next) {
     fprintf(stderr, "Sending selected client change event to fd %d\n", c->fd);
     ipc_prepare_send_message(c, IPC_TYPE_EVENT, len, (char *)buffer);
   }
@@ -467,7 +470,7 @@ ipc_init(const char *socket_path, const int p_epoll_fd,
 IPCClient*
 ipc_list_get_client(int fd)
 {
-  for (IPCClient *c = ipc_client_head; c; c = c->next) {
+  for (IPCClient *c = ipc_clients; c; c = c->next) {
     if (c->fd == fd) return c;
   }
 
@@ -920,7 +923,7 @@ ipc_is_client_registered(int fd)
 void
 ipc_cleanup(int sock_fd)
 {
-  IPCClient *c = ipc_client_head;
+  IPCClient *c = ipc_clients;
   while (c) {
     IPCClient *next = c->next;
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &c->event);
