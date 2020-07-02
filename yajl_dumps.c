@@ -201,3 +201,24 @@ dump_client_change_event(yajl_gen gen, Client *old_client, Client *new_client,
   return 0;
 }
 
+int
+dump_layout_change_event(yajl_gen gen, const int mon_num,
+    const char *old_symbol, const char *new_symbol)
+{
+  yajl_gen_map_open(gen);
+
+  ystr("layout_change_event");
+  yajl_gen_map_open(gen);
+
+  ystr("monitor_number"); yajl_gen_integer(gen, mon_num);
+
+  ystr("old"); ystr(old_symbol);
+
+  ystr("new"); ystr(new_symbol);
+
+  yajl_gen_map_close(gen);
+
+  yajl_gen_map_close(gen);
+
+  return 0;
+}

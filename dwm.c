@@ -179,6 +179,7 @@ static void updatebars(void);
 static void updateclientlist(void);
 static int updategeom(void);
 static void updatelastsel(void);
+static void updatelastltsymbol(void);
 static void updatenumlockmask(void);
 static void updatesizehints(Client *c);
 static void updatestatus(void);
@@ -942,6 +943,7 @@ handlexevent(struct epoll_event *ev)
         handler[ev.type](&ev); /* call handler */
         updatetagset();
         updatelastsel();
+        updatelastltsymbol();
       }
     }
   } else if (ev-> events & EPOLLHUP) {
@@ -995,6 +997,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
         return -1;
       updatetagset();
       updatelastsel();
+      updatelastltsymbol();
     } else if (msg_type == IPC_TYPE_GET_DWM_CLIENT) {
       Client *dwm_c;
       Window win;
@@ -2134,6 +2137,17 @@ updatelastsel(void)
       ipc_selected_client_change_event(m->lastsel, m->sel, m->num);
 
     m->lastsel = m->sel;
+  }
+}
+
+void
+updatelastltsymbol(void)
+{
+  for (Monitor *m = mons; m; m = m->next) {
+    if (strcmp(m->ltsymbol, m->lastltsymbol) != 0)
+      ipc_layout_change_event(m->num, m->lastltsymbol, m->ltsymbol);
+
+    strcpy(m->lastltsymbol, m->ltsymbol);
   }
 }
 

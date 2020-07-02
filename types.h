@@ -41,6 +41,8 @@ struct TagState {
 
 struct Monitor {
   char ltsymbol[16];
+  char lastltsymbol[16];
+
   float mfact;
   int nmaster;
   int num;

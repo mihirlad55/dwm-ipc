@@ -25,6 +25,7 @@ typedef enum IPCMessageType {
 typedef enum IPCEvent {
   IPC_EVENT_TAG_CHANGE = 1,
   IPC_EVENT_SELECTED_CLIENT_CHANGE = 2,
+  IPC_EVENT_LAYOUT_CHANGE = 4
 } IPCEvent;
 
 typedef enum IPCSubscriptionAction {
@@ -97,5 +98,8 @@ void ipc_tag_change_event(int mon_num, TagState old_state, TagState new_state);
 
 void ipc_selected_client_change_event(Client *old_client, Client *new_client,
                                       int mon_num);
+
+void ipc_layout_change_event(const int mon_num, const char *old_symbol,
+                             const char *new_symbol);
 
 #endif /* IPC_H_ */

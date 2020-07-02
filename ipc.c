@@ -636,6 +636,8 @@ ipc_event_stoi(const char *subscription)
     return IPC_EVENT_TAG_CHANGE;
   else if (strcmp(subscription, "window_change_event") == 0)
     return IPC_EVENT_SELECTED_CLIENT_CHANGE;
+  else if (strcmp(subscription, "layout_change_event") == 0)
+    return IPC_EVENT_LAYOUT_CHANGE;
   else
     return -1;
 }
@@ -701,6 +703,16 @@ ipc_selected_client_change_event(Client *old_client, Client *new_client,
   ipc_event_init_message(&gen);
   dump_client_change_event(gen, old_client, new_client, mon_num);
   ipc_event_prepare_send_message(gen, IPC_EVENT_SELECTED_CLIENT_CHANGE);
+}
+
+void
+ipc_layout_change_event(const int mon_num, const char *old_symbol,
+    const char *new_symbol)
+{
+  yajl_gen gen;
+  ipc_event_init_message(&gen);
+  dump_layout_change_event(gen, mon_num, old_symbol, new_symbol);
+  ipc_event_prepare_send_message(gen, IPC_EVENT_LAYOUT_CHANGE);
 }
 
 int
