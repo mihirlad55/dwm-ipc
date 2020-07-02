@@ -84,17 +84,16 @@ void ipc_prepare_send_message(IPCClient *c, const uint8_t msg_type,
 
 int ipc_push_pending(IPCClient *c);
 
-int ipc_get_monitors(Monitor *selmon, unsigned char **buffer, size_t *len);
+void ipc_get_monitors(IPCClient *c, Monitor *selmon);
 
-int ipc_get_tags(unsigned char **buffer, size_t *len, const char *tags[],
-                 const int tags_len);
+void ipc_get_tags(IPCClient *c, const char *tags[], const int tags_len);
 
-int ipc_get_layouts(unsigned char **buffer, size_t *len, const Layout layouts[],
-                    const int layouts_len);
+void ipc_get_layouts(IPCClient *c, const Layout layouts[],
+                     const int layouts_len);
 
 int ipc_parse_get_client(const uint8_t *msg, Window *win);
 
-int ipc_get_client(unsigned char **buffer, size_t *len, Client *c);
+void ipc_get_client(IPCClient *ipc_client, Client *dwm_client);
 
 int ipc_is_client_registered(int fd);
 

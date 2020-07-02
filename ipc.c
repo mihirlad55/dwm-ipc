@@ -389,6 +389,55 @@ dump_client_change_event(yajl_gen gen, Client *old_client, Client *new_client,
   return 0;
 }
 
+static void
+ipc_event_init_message(yajl_gen *gen)
+{
+  *gen = yajl_gen_alloc(NULL);
+  yajl_gen_config(*gen, yajl_gen_beautify, 1);
+
+  yajl_gen_map_open(*gen);
+}
+
+static void
+ipc_event_prepare_send_message(yajl_gen gen)
+{
+  const unsigned char *buffer;
+  size_t len;
+
+  yajl_gen_map_close(gen);
+
+  yajl_gen_get_buf(gen, &buffer, &len);
+
+  for (IPCClient *c = ipc_client_head; c; c = c->next) {
+    fprintf(stderr, "Sending selected client change event to fd %d\n", c->fd);
+    ipc_prepare_send_message(c, IPC_TYPE_EVENT, len, (char *)buffer);
+  }
+
+  // Not documented, but this frees temp_buffer
+  yajl_gen_free(gen);
+}
+
+static void
+ipc_reply_init_message(yajl_gen *gen)
+{
+  *gen = yajl_gen_alloc(NULL);
+  yajl_gen_config(*gen, yajl_gen_beautify, 1);
+}
+
+static void
+ipc_reply_prepare_send_message(yajl_gen gen, IPCClient *c, uint32_t msg_type)
+{
+  const unsigned char *buffer;
+  size_t len;
+
+  yajl_gen_get_buf(gen, &buffer, &len);
+
+  ipc_prepare_send_message(c, msg_type, len, (const char*)buffer);
+
+  // Not documented, but this frees temp_buffer
+  yajl_gen_free(gen);
+}
+
 int
 ipc_init(const char *socket_path, const int p_epoll_fd)
 {
@@ -674,78 +723,41 @@ ipc_push_pending(IPCClient *c)
   return n;
 }
 
-int
-ipc_get_monitors(Monitor *selmon, unsigned char **buffer, size_t *len)
+void
+ipc_get_monitors(IPCClient *c, Monitor *mons)
 {
-  const unsigned char *temp_buffer;
-
-  yajl_gen gen = yajl_gen_alloc(NULL);
-  yajl_gen_config(gen, yajl_gen_beautify, 1);
-
+  yajl_gen gen;
+  ipc_reply_init_message(&gen);
   yajl_gen_array_open(gen);
 
-  for (Monitor *mon = selmon; mon; mon = mon->next)
+  for (Monitor *mon = mons; mon; mon = mon->next)
     dump_monitor(gen, mon);
 
   yajl_gen_array_close(gen);
 
-  yajl_gen_get_buf(gen, &temp_buffer, len);
-
-  *buffer = (unsigned char*)malloc(sizeof(unsigned char*) * (*len));
-  memmove(*buffer, temp_buffer, *len);
-
-  // Not documented, but this frees temp_buffer
-  yajl_gen_free(gen);
-
-  return 0;
+  ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_MONITORS);
 }
 
-int
-ipc_get_tags(unsigned char **buffer, size_t *len, const char *tags[],
-    const int tags_len)
+void
+ipc_get_tags(IPCClient *c, const char *tags[], const int tags_len)
 {
-  const unsigned char *temp_buffer;
-
-  yajl_gen gen = yajl_gen_alloc(NULL);
-  yajl_gen_config(gen, yajl_gen_beautify, 1);
-
-  yajl_gen_array_open(gen);
+  yajl_gen gen;
+  ipc_reply_init_message(&gen);
 
   dump_tags(gen, tags, tags_len);
 
-  yajl_gen_array_close(gen);
-
-  yajl_gen_get_buf(gen, &temp_buffer, len);
-
-  *buffer = (unsigned char*)malloc(sizeof(unsigned char*) * (*len));
-  memmove(*buffer, temp_buffer, *len);
-
-  // Not documented, but this frees temp_buffer
-  yajl_gen_free(gen);
-
-  return 0;
+  ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_TAGS);
 }
 
-int
-ipc_get_layouts(unsigned char **buffer, size_t *len, const Layout layouts[],
-    const int layouts_len)
+void
+ipc_get_layouts(IPCClient *c, const Layout layouts[], const int layouts_len)
 {
-  const unsigned char *temp_buffer;
-
-  yajl_gen gen = yajl_gen_alloc(NULL);
-  yajl_gen_config(gen, yajl_gen_beautify, 1);
+  yajl_gen gen;
+  ipc_reply_init_message(&gen);
 
   dump_layouts(gen, layouts, layouts_len);
 
-  yajl_gen_get_buf(gen, &temp_buffer, len);
-
-  *buffer = (unsigned char*)malloc(sizeof(unsigned char*) * (*len));
-  memmove(*buffer, temp_buffer, *len);
-
-  // Not documented, but this frees temp_buffer
-  yajl_gen_free(gen);
-
-  return 0;
+  ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_LAYOUTS);
 }
 
 int
@@ -780,25 +792,15 @@ ipc_parse_get_client(const uint8_t *msg, Window *win)
   return 0;
 }
 
-int
-ipc_get_client(unsigned char **buffer, size_t *len, Client *c)
+void
+ipc_get_client(IPCClient *ipc_client, Client *dwm_client)
 {
-  const unsigned char *temp_buffer;
+  yajl_gen gen;
+  ipc_reply_init_message(&gen);
 
-  yajl_gen gen = yajl_gen_alloc(NULL);
-  yajl_gen_config(gen, yajl_gen_beautify, 1);
+  dump_client(gen, dwm_client);
 
-  dump_client(gen, c);
-
-  yajl_gen_get_buf(gen, &temp_buffer, len);
-
-  *buffer = (unsigned char*)malloc(sizeof(unsigned char*) * (*len));
-  memmove(*buffer, temp_buffer, *len);
-
-  // Not documented, but this frees temp_buffer
-  yajl_gen_free(gen);
-
-  return 0;
+  ipc_reply_prepare_send_message(gen, ipc_client, IPC_TYPE_GET_CLIENT);
 }
 
 int
@@ -905,50 +907,20 @@ ipc_prepare_reply_success(IPCClient *c, int msg_type)
 void
 ipc_tag_change_event(int mon_num, TagState old, TagState new)
 {
-  const unsigned char *buffer;
-  size_t len;
-
-  yajl_gen gen = yajl_gen_alloc(NULL);
-  yajl_gen_config(gen, yajl_gen_beautify, 1);
-
-  yajl_gen_map_open(gen);
+  yajl_gen gen;
+  ipc_event_init_message(&gen);
   dump_tag_event(gen, mon_num, old, new);
-  yajl_gen_map_close(gen);
-
-  yajl_gen_get_buf(gen, &buffer, &len);
-
-  for (IPCClient *c = ipc_client_head; c; c = c->next) {
-    fprintf(stderr, "Sending tag state event to fd %d\n", c->fd);
-    ipc_prepare_send_message(c, IPC_TYPE_EVENT, len, (char *)buffer);
-  }
-
-  // Not documented, but this frees temp_buffer
-  yajl_gen_free(gen);
+  ipc_event_prepare_send_message(gen);
 }
 
 void
 ipc_selected_client_change_event(Client *old_client, Client *new_client,
     int mon_num)
 {
-  const unsigned char *buffer;
-  size_t len;
-
-  yajl_gen gen = yajl_gen_alloc(NULL);
-  yajl_gen_config(gen, yajl_gen_beautify, 1);
-
-  yajl_gen_map_open(gen);
+  yajl_gen gen;
+  ipc_event_init_message(&gen);
   dump_client_change_event(gen, old_client, new_client, mon_num);
-  yajl_gen_map_close(gen);
-
-  yajl_gen_get_buf(gen, &buffer, &len);
-
-  for (IPCClient *c = ipc_client_head; c; c = c->next) {
-    fprintf(stderr, "Sending selected client change event to fd %d\n", c->fd);
-    ipc_prepare_send_message(c, IPC_TYPE_EVENT, len, (char *)buffer);
-  }
-
-  // Not documented, but this frees temp_buffer
-  yajl_gen_free(gen);
+  ipc_event_prepare_send_message(gen);
 }
 
 int

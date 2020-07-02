@@ -1057,37 +1057,30 @@ int handleipcevent(int fd, struct epoll_event *ev)
                msg_type == IPC_TYPE_GET_TAGS ||
                msg_type == IPC_TYPE_GET_LAYOUTS ||
                msg_type == IPC_TYPE_GET_CLIENT) {
-      unsigned char *buffer;
-      size_t len;
       int res;
 
       switch (msg_type) {
         Client *dwm_c;
         Window win;
         case IPC_TYPE_GET_MONITORS:
-          res = ipc_get_monitors(selmon, &buffer, &len);
+          ipc_get_monitors(c, mons);
           break;
         case IPC_TYPE_GET_TAGS:
-          res = ipc_get_tags(&buffer, &len, tags, LENGTH(tags));
+          ipc_get_tags(c, tags, LENGTH(tags));
           break;
         case IPC_TYPE_GET_LAYOUTS:
-          res = ipc_get_layouts(&buffer, &len, layouts, LENGTH(layouts));
+          ipc_get_layouts(c, layouts, LENGTH(layouts));
           break;
         case IPC_TYPE_GET_CLIENT:
           res = ipc_parse_get_client(msg, &win);
           if (res == 0) {
             dwm_c = wintoclient(win);
-            res = ipc_get_client(&buffer, &len, dwm_c);
+            ipc_get_client(c, dwm_c);
           }
           break;
       }
 
       if (res != 0) return -1;
-
-      fprintf(stderr, "Preparing message for fd %d...\n", fd);
-      ipc_prepare_send_message(c, msg_type, len, (char *)buffer);
-
-      free((void*)buffer);
     } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
       int action;
       int event = ipc_parse_subscribe(msg, &action);
