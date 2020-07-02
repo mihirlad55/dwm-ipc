@@ -1010,7 +1010,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
     } else if (msg_type == IPC_TYPE_GET_MONITORS ||
                msg_type == IPC_TYPE_GET_TAGS ||
                msg_type == IPC_TYPE_GET_LAYOUTS ||
-               msg_type == IPC_TYPE_GET_CLIENT) {
+               msg_type == IPC_TYPE_GET_DWM_CLIENT) {
       int res;
 
       switch (msg_type) {
@@ -1025,11 +1025,11 @@ int handleipcevent(int fd, struct epoll_event *ev)
         case IPC_TYPE_GET_LAYOUTS:
           ipc_get_layouts(c, layouts, LENGTH(layouts));
           break;
-        case IPC_TYPE_GET_CLIENT:
+        case IPC_TYPE_GET_DWM_CLIENT:
           res = ipc_parse_get_client(msg, &win);
           if (res == 0) {
             dwm_c = wintoclient(win);
-            ipc_get_client(c, dwm_c);
+            ipc_get_dwm_client(c, dwm_c);
           }
           break;
       }

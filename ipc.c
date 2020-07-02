@@ -591,14 +591,14 @@ ipc_parse_get_client(const uint8_t *msg, Window *win)
 }
 
 void
-ipc_get_client(IPCClient *ipc_client, Client *dwm_client)
+ipc_get_dwm_client(IPCClient *ipc_client, Client *dwm_client)
 {
   yajl_gen gen;
   ipc_reply_init_message(&gen);
 
   dump_client(gen, dwm_client);
 
-  ipc_reply_prepare_send_message(gen, ipc_client, IPC_TYPE_GET_CLIENT);
+  ipc_reply_prepare_send_message(gen, ipc_client, IPC_TYPE_GET_DWM_CLIENT);
 }
 
 int
