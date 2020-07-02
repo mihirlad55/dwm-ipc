@@ -972,10 +972,10 @@ int handleipcevent(int fd, struct epoll_event *ev)
     ipc_drop_client(fd);
   } else if (ev->events & EPOLLOUT) {
     fprintf(stderr, "Sending message to client at fd %d...\n", fd);
-    IPCClient *c = ipc_list_get_client(fd);
+    IPCClient *c = ipc_get_client(fd);
     if (c->buffer_size) ipc_push_pending(c);
   } else if (ev->events & EPOLLIN) {
-    IPCClient *c = ipc_list_get_client(fd);
+    IPCClient *c = ipc_get_client(fd);
     uint8_t msg_type;
     uint32_t msg_size;
     uint8_t *msg;

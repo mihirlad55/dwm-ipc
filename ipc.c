@@ -10,9 +10,10 @@
 #include <yajl/yajl_gen.h>
 
 #include "ipc.h"
+#include "IPCClient.h"
 #include "yajl_dumps.h"
 
-static IPCClient *ipc_clients = NULL;
+static IPCClientList ipc_clients = NULL;
 static int epoll_fd = -1;
 static IPCCommand *ipc_commands;
 static int ipc_commands_len;
@@ -55,54 +56,6 @@ ipc_create_socket(const char *filename)
   }
 
   return sock_fd;
-}
-
-static IPCClient*
-ipc_init_client(int fd)
-{
-  IPCClient* c = (IPCClient*)malloc(sizeof(IPCClient));
-
-  if (c == NULL) return NULL;
-
-  c->buffer_size = 0;
-  c->buffer = NULL;
-  c->fd = fd;
-  c->event.data.fd = fd;
-  c->next = NULL;
-  c->prev = NULL;
-  c->subscriptions = 0;
-
-  return c;
-}
-
-static void
-ipc_list_add_client(IPCClient *nc)
-{
-  fprintf(stderr, "Adding client with fd %d to list\n", nc->fd);
-  if (ipc_clients == NULL) {
-    ipc_clients = nc;
-  } else {
-    IPCClient *c;
-    for (c = ipc_clients; c && c->next; c = c->next)
-      ;
-    c->next = nc;
-    nc->prev = c;
-  }
-}
-
-static void
-ipc_list_remove_client(IPCClient *c)
-{
-  for (c = ipc_clients; c && c->next; c = c->next)
-    ;
-
-  IPCClient *cprev = c->prev;
-  IPCClient *cnext = c->next;
-
-  if (cprev != NULL) cprev->next = c->next;
-  if (cnext != NULL) cnext->prev = c->prev;
-  if (c == ipc_clients)
-    ipc_clients = c->next;
 }
 
 static int
@@ -275,13 +228,9 @@ ipc_init(const char *socket_path, const int p_epoll_fd,
 }
 
 IPCClient*
-ipc_list_get_client(int fd)
+ipc_get_client(int fd)
 {
-  for (IPCClient *c = ipc_clients; c; c = c->next) {
-    if (c->fd == fd) return c;
-  }
-
-  return NULL;
+  return ipc_list_get_client(ipc_clients, fd);
 }
 
 int
@@ -304,7 +253,7 @@ ipc_accept_client(int sock_fd, struct epoll_event *event)
       return -1;
     }
 
-    IPCClient *nc = ipc_init_client(fd);
+    IPCClient *nc = ipc_client_new(fd);
     if (nc == NULL) return -1;
 
     nc->event.data.fd = fd;
@@ -312,7 +261,7 @@ ipc_accept_client(int sock_fd, struct epoll_event *event)
 
     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &nc->event);
 
-    ipc_list_add_client(nc);
+    ipc_list_add_client(ipc_clients, nc);
 
     fprintf(stderr, "%s%d\n", "New client at fd: ", fd);
   }
@@ -352,10 +301,10 @@ ipc_drop_client(int fd)
 
   if (res == 0) {
     struct epoll_event ev;
-    IPCClient *c = ipc_list_get_client(fd);
+    IPCClient *c = ipc_list_get_client(ipc_clients, fd);
 
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &ev);
-    ipc_list_remove_client(c);
+    ipc_list_remove_client(ipc_clients, c);
     free(c);
 
     fprintf(stderr, "Successfully removed client on fd %d\n", fd);
@@ -724,7 +673,7 @@ ipc_selected_client_change_event(Client *old_client, Client *new_client,
 int
 ipc_is_client_registered(int fd)
 {
-  return (ipc_list_get_client(fd) != NULL);
+  return (ipc_get_client(fd) != NULL);
 }
 
 void

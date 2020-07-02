@@ -2,6 +2,7 @@
 #define IPC_H_
 
 #include "types.h"
+#include "IPCClient.h"
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <yajl/yajl_gen.h>
@@ -31,19 +32,6 @@ typedef struct dwm_ipc_header {
   uint8_t type;
 } __attribute((packed)) dwm_ipc_header_t;
 
-typedef struct IPCClient IPCClient;
-struct IPCClient {
-  int fd;
-  int subscriptions;
-
-  char *buffer;
-  uint32_t buffer_size;
-
-  struct epoll_event event;
-  IPCClient *next;
-  IPCClient *prev;
-};
-
 typedef union {
   void (*single_param_func)(const Arg *);
   void (*array_param_func)(const Arg *, int);
@@ -58,7 +46,7 @@ typedef struct {
 int ipc_init(const char *socket_path, const int epoll_fd, IPCCommand commands[],
              int commands_len);
 
-IPCClient *ipc_list_get_client(int fd);
+IPCClient *ipc_get_client(int fd);
 
 int ipc_accept_client(int sock_fd, struct epoll_event *event);
 
@@ -94,7 +82,7 @@ void ipc_get_layouts(IPCClient *c, const Layout layouts[],
 
 int ipc_parse_get_client(const uint8_t *msg, Window *win);
 
-void ipc_get_client(IPCClient *ipc_client, Client *dwm_client);
+void ipc_get_dwm_client(IPCClient *ipc_client, Client *dwm_client);
 
 int ipc_is_client_registered(int fd);
 
