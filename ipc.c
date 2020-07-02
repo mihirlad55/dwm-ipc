@@ -405,10 +405,10 @@ ipc_run_command(const char *name, Arg *args, const int argc)
       if (argc != c->argc)
         return -1;
       else if (argc == 1) {
-        c->func.single_param_func(args);
+        c->func.single_param(args);
         return 0;
       } else if (argc > 1) {
-        c->func.array_param_func(args, argc);
+        c->func.array_param(args, argc);
         return 0;
       }
     }

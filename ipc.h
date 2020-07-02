@@ -33,8 +33,8 @@ typedef struct dwm_ipc_header {
 } __attribute((packed)) dwm_ipc_header_t;
 
 typedef union {
-  void (*single_param_func)(const Arg *);
-  void (*array_param_func)(const Arg *, int);
+  void (*single_param)(const Arg *);
+  void (*array_param)(const Arg *, int);
 } ArgFunction;
 
 typedef struct {
