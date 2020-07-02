@@ -1026,7 +1026,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
           ipc_get_layouts(c, layouts, LENGTH(layouts));
           break;
         case IPC_TYPE_GET_DWM_CLIENT:
-          res = ipc_parse_get_client(msg, &win);
+          res = ipc_parse_get_dwm_client(msg, &win);
           if (res == 0) {
             dwm_c = wintoclient(win);
             ipc_get_dwm_client(c, dwm_c);

@@ -508,7 +508,7 @@ ipc_get_layouts(IPCClient *c, const Layout layouts[], const int layouts_len)
 }
 
 int
-ipc_parse_get_client(const uint8_t *msg, Window *win)
+ipc_parse_get_dwm_client(const uint8_t *msg, Window *win)
 {
   char error_buffer[100];
 
