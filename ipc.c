@@ -203,6 +203,141 @@ ipc_reply_prepare_send_message(yajl_gen gen, IPCClient *c, uint32_t msg_type)
   yajl_gen_free(gen);
 }
 
+static int
+ipc_parse_run_command(const char *msg, char **name, unsigned int *argc,
+    Arg *args[])
+{
+  char error_buffer[100];
+  yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
+
+  if (parent == NULL) {
+    fputs("Failed to parse command from client\n", stderr);
+    fprintf(stderr, "%s\n", error_buffer);
+    return -1;
+  }
+
+  // Format:
+  // {
+  //   "command": "<command name>"
+  //   "args": [ "arg1", "arg2" ]
+  // }
+  const char *command_path[] = {"command", 0};
+  yajl_val command_val = yajl_tree_get(parent, command_path, yajl_t_string);
+
+  if (command_val == NULL) {
+    fputs("No command key found in client message\n", stderr);
+    return -1;
+  }
+
+  const char* command = YAJL_GET_STRING(command_val);
+  const size_t command_size = sizeof(char) * (strlen(command) + 1);
+  *name = (char*)malloc(command_size);
+  strcpy(*name, command);
+  fprintf(stderr, "Received command: %s\n", command);
+
+  const char *args_path[] = {"args", 0};
+  yajl_val args_val = yajl_tree_get(parent, args_path, yajl_t_array);
+
+  if (args_val == NULL) {
+    fputs("No args key found in client message\n", stderr);
+    return -1;
+  }
+
+  *argc = args_val->u.array.len;
+
+  if (*argc == 0) {
+    *args = (Arg*)(malloc(sizeof(Arg)));
+    (*args)[0].f = 0;
+    argc++;
+  } else if (*argc > 0) {
+    *args = (Arg*)calloc(*argc, sizeof(Arg));
+
+    for (int i = 0; i < *argc; i++) {
+      yajl_val arg_val = args_val->u.array.values[i];
+
+      if (YAJL_IS_NUMBER(arg_val)) {
+        if (YAJL_IS_INTEGER(arg_val)) {
+          if (YAJL_GET_INTEGER(arg_val) < 0) {
+            (*args)[i].i = YAJL_GET_INTEGER(arg_val);
+            fprintf(stderr, "i=%d\n", (*args)[i].i);
+          } else {
+            (*args)[i].ui = YAJL_GET_INTEGER(arg_val);
+            fprintf(stderr, "ui=%d\n", (*args)[i].i);
+          }
+        } else {
+          (*args)[i].f = (float)YAJL_GET_DOUBLE(arg_val);
+          fprintf(stderr, "f=%f\n", (*args)[i].f);
+        }
+      } else if (YAJL_IS_STRING(arg_val)) {
+        char* arg_s = YAJL_GET_STRING(arg_val);
+        size_t arg_s_size = (strlen(arg_s) + 1) * sizeof(char);
+        (*args)[i].v = (char*)malloc(arg_s_size);
+        strcpy((char*)(*args)[i].v, arg_s);
+      }
+    }
+  }
+
+  yajl_tree_free(parent);
+
+  return 0;
+}
+
+static int
+ipc_parse_subscribe(const char *msg, int *subscribe)
+{
+  char error_buffer[100];
+  yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
+
+  if (parent == NULL) {
+    fputs("Failed to parse command from client\n", stderr);
+    fprintf(stderr, "%s\n", error_buffer);
+    return -1;
+  }
+
+  // Format:
+  // {
+  //   "event": "<event name>"
+  //   "action": "<subscribe|unsubscribe>"
+  // }
+  const char *event_path[] = {"event", 0};
+  yajl_val event_val = yajl_tree_get(parent, event_path, yajl_t_string);
+
+  if (event_val == NULL) {
+    fputs("No 'event' key found in client message\n", stderr);
+    return -1;
+  }
+
+  const char* event = YAJL_GET_STRING(event_val);
+  fprintf(stderr, "Received event: %s\n", event);
+
+  int event_num;
+  if ((event_num = ipc_event_stoi(event)) < 0)
+    return -1;
+
+  const char *action_path[] = {"action", 0};
+  yajl_val action_val = yajl_tree_get(parent, action_path, yajl_t_string);
+
+  if (action_val == NULL) {
+    fputs("No 'action' key found in client message\n", stderr);
+    return -1;
+  }
+
+  const char* action = YAJL_GET_STRING(action_val);
+
+  if (strcmp(action, "subscribe") == 0)
+    *subscribe = IPC_ACTION_SUBSCRIBE;
+  else if (strcmp(action, "unsubscribe") == 0)
+    *subscribe = IPC_ACTION_UNSUBSCRIBE;
+  else {
+    fputs("Invalid action specified for subscription\n", stderr);
+    return -1;
+  }
+
+  yajl_tree_free(parent);
+
+  return event_num;
+}
+
 int
 ipc_init(const char *socket_path, const int p_epoll_fd,
     IPCCommand commands[], int commands_len)
@@ -313,85 +448,6 @@ ipc_drop_client(int fd)
   }
 
   return res;
-}
-
-static int
-ipc_parse_run_command(const char *msg, char **name, unsigned int *argc,
-    Arg *args[])
-{
-  char error_buffer[100];
-  yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
-
-  if (parent == NULL) {
-    fputs("Failed to parse command from client\n", stderr);
-    fprintf(stderr, "%s\n", error_buffer);
-    return -1;
-  }
-
-  // Format:
-  // {
-  //   "command": "<command name>"
-  //   "args": [ "arg1", "arg2" ]
-  // }
-  const char *command_path[] = {"command", 0};
-  yajl_val command_val = yajl_tree_get(parent, command_path, yajl_t_string);
-
-  if (command_val == NULL) {
-    fputs("No command key found in client message\n", stderr);
-    return -1;
-  }
-
-  const char* command = YAJL_GET_STRING(command_val);
-  const size_t command_size = sizeof(char) * (strlen(command) + 1);
-  *name = (char*)malloc(command_size);
-  strcpy(*name, command);
-  fprintf(stderr, "Received command: %s\n", command);
-
-  const char *args_path[] = {"args", 0};
-  yajl_val args_val = yajl_tree_get(parent, args_path, yajl_t_array);
-
-  if (args_val == NULL) {
-    fputs("No args key found in client message\n", stderr);
-    return -1;
-  }
-
-  *argc = args_val->u.array.len;
-
-  if (*argc == 0) {
-    *args = (Arg*)(malloc(sizeof(Arg)));
-    (*args)[0].f = 0;
-    argc++;
-  } else if (*argc > 0) {
-    *args = (Arg*)calloc(*argc, sizeof(Arg));
-
-    for (int i = 0; i < *argc; i++) {
-      yajl_val arg_val = args_val->u.array.values[i];
-
-      if (YAJL_IS_NUMBER(arg_val)) {
-        if (YAJL_IS_INTEGER(arg_val)) {
-          if (YAJL_GET_INTEGER(arg_val) < 0) {
-            (*args)[i].i = YAJL_GET_INTEGER(arg_val);
-            fprintf(stderr, "i=%d\n", (*args)[i].i);
-          } else {
-            (*args)[i].ui = YAJL_GET_INTEGER(arg_val);
-            fprintf(stderr, "ui=%d\n", (*args)[i].i);
-          }
-        } else {
-          (*args)[i].f = (float)YAJL_GET_DOUBLE(arg_val);
-          fprintf(stderr, "f=%f\n", (*args)[i].f);
-        }
-      } else if (YAJL_IS_STRING(arg_val)) {
-        char* arg_s = YAJL_GET_STRING(arg_val);
-        size_t arg_s_size = (strlen(arg_s) + 1) * sizeof(char);
-        (*args)[i].v = (char*)malloc(arg_s_size);
-        strcpy((char*)(*args)[i].v, arg_s);
-      }
-    }
-  }
-
-  yajl_tree_free(parent);
-
-  return 0;
 }
 
 int
@@ -576,62 +632,6 @@ ipc_event_stoi(const char *subscription)
     return IPC_EVENT_SELECTED_CLIENT_CHANGE;
   else
     return -1;
-}
-
-int
-ipc_parse_subscribe(const char *msg, int *subscribe)
-{
-  char error_buffer[100];
-  yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
-
-  if (parent == NULL) {
-    fputs("Failed to parse command from client\n", stderr);
-    fprintf(stderr, "%s\n", error_buffer);
-    return -1;
-  }
-
-  // Format:
-  // {
-  //   "event": "<event name>"
-  //   "action": "<subscribe|unsubscribe>"
-  // }
-  const char *event_path[] = {"event", 0};
-  yajl_val event_val = yajl_tree_get(parent, event_path, yajl_t_string);
-
-  if (event_val == NULL) {
-    fputs("No 'event' key found in client message\n", stderr);
-    return -1;
-  }
-
-  const char* event = YAJL_GET_STRING(event_val);
-  fprintf(stderr, "Received event: %s\n", event);
-
-  int event_num;
-  if ((event_num = ipc_event_stoi(event)) < 0)
-    return -1;
-
-  const char *action_path[] = {"action", 0};
-  yajl_val action_val = yajl_tree_get(parent, action_path, yajl_t_string);
-
-  if (action_val == NULL) {
-    fputs("No 'action' key found in client message\n", stderr);
-    return -1;
-  }
-
-  const char* action = YAJL_GET_STRING(action_val);
-
-  if (strcmp(action, "subscribe") == 0)
-    *subscribe = IPC_ACTION_SUBSCRIBE;
-  else if (strcmp(action, "unsubscribe") == 0)
-    *subscribe = IPC_ACTION_UNSUBSCRIBE;
-  else {
-    fputs("Invalid action specified for subscription\n", stderr);
-    return -1;
-  }
-
-  yajl_tree_free(parent);
-
-  return event_num;
 }
 
 int
