@@ -976,9 +976,9 @@ int handleipcevent(int fd, struct epoll_event *ev)
     fprintf(stderr, "Sending message to client at fd %d...\n", fd);
     if (c->buffer_size) ipc_push_pending(c);
   } else if (ev->events & EPOLLIN) {
-    uint8_t msg_type;
+    IPCMessageType msg_type;
     uint32_t msg_size;
-    uint8_t *msg;
+    char *msg;
 
     fprintf(stderr, "Received message from fd %d\n", fd);
     if (ipc_read_client(fd, &msg_type, &msg_size, &msg) < 0)
@@ -991,7 +991,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
     else if (msg_type == IPC_TYPE_GET_LAYOUTS)
       ipc_get_layouts(c, layouts, LENGTH(layouts));
     else if (msg_type == IPC_TYPE_RUN_COMMAND) {
-      if (ipc_run_command(c, (const char*)msg) < 0)
+      if (ipc_run_command(c, msg) < 0)
         return -1;
       updatetagset();
       updatelastsel();
@@ -1005,7 +1005,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
       } else
         return -1;
     } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
-      if (ipc_subscribe(c, (const char*)msg) < 0)
+      if (ipc_subscribe(c, msg) < 0)
         return -1;
     } else {
       fprintf(stderr, "Invalid message type received from fd %d", fd);

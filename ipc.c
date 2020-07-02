@@ -190,7 +190,8 @@ ipc_reply_init_message(yajl_gen *gen)
 }
 
 static void
-ipc_reply_prepare_send_message(yajl_gen gen, IPCClient *c, uint32_t msg_type)
+ipc_reply_prepare_send_message(yajl_gen gen, IPCClient *c, IPCMessageType
+    msg_type)
 {
   const unsigned char *buffer;
   size_t len;
@@ -204,11 +205,11 @@ ipc_reply_prepare_send_message(yajl_gen gen, IPCClient *c, uint32_t msg_type)
 }
 
 static int
-ipc_parse_run_command(const char *msg, char **name, unsigned int *argc,
+ipc_parse_run_command(char *msg, char **name, unsigned int *argc,
     Arg *args[])
 {
   char error_buffer[100];
-  yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
+  yajl_val parent = yajl_tree_parse(msg, error_buffer, 100);
 
   if (parent == NULL) {
     fputs("Failed to parse command from client\n", stderr);
@@ -269,6 +270,8 @@ ipc_parse_run_command(const char *msg, char **name, unsigned int *argc,
           fprintf(stderr, "f=%f\n", (*args)[i].f);
         }
       } else if (YAJL_IS_STRING(arg_val)) {
+        // TODO: How do we detect in an array of Arg if this type was used and
+        // free it accordingly
         char* arg_s = YAJL_GET_STRING(arg_val);
         size_t arg_s_size = (strlen(arg_s) + 1) * sizeof(char);
         (*args)[i].v = (char*)malloc(arg_s_size);
@@ -283,7 +286,7 @@ ipc_parse_run_command(const char *msg, char **name, unsigned int *argc,
 }
 
 static int
-ipc_parse_subscribe(const char *msg, int *subscribe)
+ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe)
 {
   char error_buffer[100];
   yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
@@ -310,7 +313,7 @@ ipc_parse_subscribe(const char *msg, int *subscribe)
   const char* event = YAJL_GET_STRING(event_val);
   fprintf(stderr, "Received event: %s\n", event);
 
-  int event_num;
+  IPCEvent event_num;
   if ((event_num = ipc_event_stoi(event)) < 0)
     return -1;
 
@@ -405,9 +408,10 @@ ipc_accept_client(int sock_fd, struct epoll_event *event)
 }
 
 int
-ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size, uint8_t **msg)
+ipc_read_client(int fd, IPCMessageType *msg_type, uint32_t *msg_size, char **msg)
 {
-  int ret = ipc_recv_message(fd, msg_type, msg_size, msg);
+  int ret = ipc_recv_message(fd, (uint8_t *)msg_type, msg_size,
+      (uint8_t **)msg);
 
   if (ret < 0) {
     // Will happen if these errors occur while reading header
@@ -422,7 +426,7 @@ ipc_read_client(int fd, uint8_t *msg_type, uint32_t *msg_size, uint8_t **msg)
   }
 
   fprintf(stderr, "[fd %d] ", fd);
-  fprintf(stderr, "Received message: '%s' ", (char *)(*msg));
+  fprintf(stderr, "Received message: '%s' ", *msg);
   fprintf(stderr, "Message type: %" PRIu8 " ", *msg_type);
   fprintf(stderr, "Message size: %" PRIu32 "\n", *msg_size);
 
@@ -451,7 +455,7 @@ ipc_drop_client(int fd)
 }
 
 int
-ipc_run_command(IPCClient *ipc_client, const char *msg)
+ipc_run_command(IPCClient *ipc_client, char *msg)
 {
   char *name;
   unsigned int argc;
@@ -491,7 +495,7 @@ ipc_run_command(IPCClient *ipc_client, const char *msg)
 }
 
 void
-ipc_prepare_send_message(IPCClient *c, const uint8_t msg_type,
+ipc_prepare_send_message(IPCClient *c, const IPCMessageType msg_type,
                          const uint32_t msg_size, const char *msg)
 {
   dwm_ipc_header_t header = {
@@ -581,11 +585,11 @@ ipc_get_layouts(IPCClient *c, const Layout layouts[], const int layouts_len)
 }
 
 int
-ipc_parse_get_dwm_client(const uint8_t *msg, Window *win)
+ipc_parse_get_dwm_client(const char *msg, Window *win)
 {
   char error_buffer[100];
 
-  yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
+  yajl_val parent = yajl_tree_parse(msg, error_buffer, 100);
 
   if (parent == NULL) {
     fputs("Failed to parse message from client\n", stderr);
@@ -637,9 +641,9 @@ ipc_event_stoi(const char *subscription)
 int
 ipc_subscribe(IPCClient *c, const char *msg)
 {
-  int action;
+  IPCSubscriptionAction action = IPC_ACTION_SUBSCRIBE;
 
-  int event = ipc_parse_subscribe(msg, &action);
+  IPCEvent event = ipc_parse_subscribe(msg, &action);
 
   if (event < 0)
     return -1;
@@ -658,7 +662,7 @@ ipc_subscribe(IPCClient *c, const char *msg)
 }
 
 void
-ipc_prepare_reply_failure(IPCClient *c, int msg_type)
+ipc_prepare_reply_failure(IPCClient *c, IPCMessageType msg_type)
 {
   const char *failure_msg = "{\"result\":\"failure\"}";
   const size_t msg_len = strlen(failure_msg);
@@ -667,7 +671,7 @@ ipc_prepare_reply_failure(IPCClient *c, int msg_type)
 }
 
 void
-ipc_prepare_reply_success(IPCClient *c, int msg_type)
+ipc_prepare_reply_success(IPCClient *c, IPCMessageType msg_type)
 {
   const char *success_msg = "{\"result\":\"success\"}";
   const size_t msg_len = strlen(success_msg);
