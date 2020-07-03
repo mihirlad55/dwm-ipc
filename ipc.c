@@ -627,7 +627,7 @@ ipc_get_layouts(IPCClient *c, const Layout layouts[], const int layouts_len)
   ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_LAYOUTS);
 }
 
-int
+static int
 ipc_parse_get_dwm_client(const char *msg, Window *win)
 {
   char error_buffer[100];
@@ -659,15 +659,28 @@ ipc_parse_get_dwm_client(const char *msg, Window *win)
   return 0;
 }
 
-void
-ipc_get_dwm_client(IPCClient *ipc_client, Client *dwm_client)
+int ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
+    const Monitor *mons)
 {
-  yajl_gen gen;
-  ipc_reply_init_message(&gen);
+  Window win;
 
-  dump_client(gen, dwm_client);
+  if (ipc_parse_get_dwm_client(msg, &win) < 0)
+    return -1;
 
-  ipc_reply_prepare_send_message(gen, ipc_client, IPC_TYPE_GET_DWM_CLIENT);
+	for (const Monitor *m = mons; m; m = m->next)
+		for (Client *c = m->clients; c; c = c->next)
+      if (c->win == win) {
+        yajl_gen gen;
+        ipc_reply_init_message(&gen);
+
+        dump_client(gen, c);
+
+        ipc_reply_prepare_send_message(gen, ipc_client,
+            IPC_TYPE_GET_DWM_CLIENT);
+
+        return 0;
+      }
+  return -1;
 }
 
 int

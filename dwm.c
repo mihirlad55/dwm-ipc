@@ -993,13 +993,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
         return -1;
       sendipcevents();
     } else if (msg_type == IPC_TYPE_GET_DWM_CLIENT) {
-      Client *dwm_c;
-      Window win;
-
-      if (ipc_parse_get_dwm_client(msg, &win) == 0) {
-        dwm_c = wintoclient(win);
-        ipc_get_dwm_client(c, dwm_c);
-      } else
+      if (ipc_get_dwm_client(c, msg, mons) < 0)
         return -1;
     } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
       if (ipc_subscribe(c, msg) < 0)

@@ -97,9 +97,8 @@ void ipc_get_tags(IPCClient *c, const char *tags[], const int tags_len);
 void ipc_get_layouts(IPCClient *c, const Layout layouts[],
                      const int layouts_len);
 
-int ipc_parse_get_dwm_client(const char *msg, Window *win);
-
-void ipc_get_dwm_client(IPCClient *ipc_client, Client *dwm_client);
+int ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
+                        const Monitor *mons);
 
 int ipc_is_client_registered(int fd);
 
