@@ -152,6 +152,7 @@ static void restack(Monitor *m);
 static void run(void);
 static void scan(void);
 static int sendevent(Client *c, Atom proto);
+static void sendipcevents(void);
 static void sendmon(Client *c, Monitor *m);
 static void setclientstate(Client *c, long state);
 static void setfocus(Client *c);
@@ -178,12 +179,9 @@ static void updatebarpos(Monitor *m);
 static void updatebars(void);
 static void updateclientlist(void);
 static int updategeom(void);
-static void updatelastsel(void);
-static void updatelastltsymbol(void);
 static void updatenumlockmask(void);
 static void updatesizehints(Client *c);
 static void updatestatus(void);
-static void updatetagset(void);
 static void updatetitle(Client *c);
 static void updatewindowtype(Client *c);
 static void updatewmhints(Client *c);
@@ -941,9 +939,7 @@ handlexevent(struct epoll_event *ev)
       XNextEvent(dpy, &ev);
       if (handler[ev.type]) {
         handler[ev.type](&ev); /* call handler */
-        updatetagset();
-        updatelastsel();
-        updatelastltsymbol();
+        sendipcevents();
       }
     }
   } else if (ev-> events & EPOLLHUP) {
@@ -995,9 +991,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
     else if (msg_type == IPC_TYPE_RUN_COMMAND) {
       if (ipc_run_command(c, msg) < 0)
         return -1;
-      updatetagset();
-      updatelastsel();
-      updatelastltsymbol();
+      sendipcevents();
     } else if (msg_type == IPC_TYPE_GET_DWM_CLIENT) {
       Client *dwm_c;
       Window win;
@@ -1491,6 +1485,39 @@ scan(void)
 		if (wins)
 			XFree(wins);
 	}
+}
+
+void
+sendipcevents(void)
+{
+  for (Monitor *m = mons; m; m = m->next) {
+    unsigned int urg = 0, occ = 0, tagset = 0;
+
+    for (Client *c = mons->clients; c; c = c->next) {
+      occ |= c->tags;
+
+      if (c->isurgent)
+        urg |= c->tags;
+    }
+    tagset = m->tagset[m->seltags];
+
+    TagState new_state = { .selected = tagset, .occupied = occ, .urgent = urg };
+
+    if (memcmp(&m->oldtagstate, &new_state, sizeof(TagState)) != 0) {
+      ipc_tag_change_event(m->num, m->oldtagstate, new_state);
+      m->oldtagstate = new_state;
+    }
+
+    if (m->lastsel && m->sel && m->lastsel != m->sel) {
+      ipc_selected_client_change_event(m->lastsel, m->sel, m->num);
+      m->lastsel = m->sel;
+    }
+
+    if (strcmp(m->ltsymbol, m->lastltsymbol) != 0) {
+      ipc_layout_change_event(m->num, m->lastltsymbol, m->ltsymbol);
+      strcpy(m->lastltsymbol, m->ltsymbol);
+    }
+  }
 }
 
 void
@@ -2104,51 +2131,6 @@ updatestatus(void)
 	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
 		strcpy(stext, "dwm-"VERSION);
 	drawbar(selmon);
-}
-
-void
-updatetagset(void)
-{
-  for (Monitor *m = mons; m; m = m->next) {
-    unsigned int urg = 0, occ = 0, tagset = 0;
-
-    for (Client *c = mons->clients; c; c = c->next) {
-      occ |= c->tags;
-
-      if (c->isurgent)
-        urg |= c->tags;
-    }
-    tagset = m->tagset[m->seltags];
-
-    TagState new_state = { .selected = tagset, .occupied = occ, .urgent = urg };
-
-    if (memcmp(&m->oldtagstate, &new_state, sizeof(TagState)) != 0) {
-      ipc_tag_change_event(m->num, m->oldtagstate, new_state);
-      m->oldtagstate = new_state;
-    }
-  }
-}
-
-void
-updatelastsel(void)
-{
-  for (Monitor *m = mons; m; m = m->next) {
-    if (m->lastsel && m->sel && m->lastsel != m->sel)
-      ipc_selected_client_change_event(m->lastsel, m->sel, m->num);
-
-    m->lastsel = m->sel;
-  }
-}
-
-void
-updatelastltsymbol(void)
-{
-  for (Monitor *m = mons; m; m = m->next) {
-    if (strcmp(m->ltsymbol, m->lastltsymbol) != 0)
-      ipc_layout_change_event(m->num, m->lastltsymbol, m->ltsymbol);
-
-    strcpy(m->lastltsymbol, m->ltsymbol);
-  }
 }
 
 void
