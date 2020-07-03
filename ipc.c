@@ -169,9 +169,10 @@ static void
 ipc_event_prepare_send_message(yajl_gen gen, IPCEvent event)
 {
   const unsigned char *buffer;
-  size_t len;
+  size_t len = 0;
 
   yajl_gen_get_buf(gen, &buffer, &len);
+  len++; // For null char
 
   for (IPCClient *c = ipc_clients; c; c = c->next) {
     if (c->subscriptions & event) {
@@ -196,9 +197,10 @@ ipc_reply_prepare_send_message(yajl_gen gen, IPCClient *c, IPCMessageType
     msg_type)
 {
   const unsigned char *buffer;
-  size_t len;
+  size_t len = 0;
 
   yajl_gen_get_buf(gen, &buffer, &len);
+  len++; // For null char
 
   ipc_prepare_send_message(c, msg_type, len, (const char*)buffer);
 
@@ -748,7 +750,7 @@ void
 ipc_prepare_reply_failure(IPCClient *c, IPCMessageType msg_type)
 {
   const char *failure_msg = "{\"result\":\"failure\"}";
-  const size_t msg_len = strlen(failure_msg);
+  const size_t msg_len = strlen(failure_msg) + 1; // +1 for null char
 
   ipc_prepare_send_message(c, msg_type, msg_len, failure_msg);
 }
@@ -757,7 +759,7 @@ void
 ipc_prepare_reply_success(IPCClient *c, IPCMessageType msg_type)
 {
   const char *success_msg = "{\"result\":\"success\"}";
-  const size_t msg_len = strlen(success_msg);
+  const size_t msg_len = strlen(success_msg) + 1; // +1 for null char
 
   ipc_prepare_send_message(c, msg_type, msg_len, success_msg);
 }
