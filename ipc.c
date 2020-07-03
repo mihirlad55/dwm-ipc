@@ -388,6 +388,38 @@ ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe)
   return event_num;
 }
 
+static int
+ipc_parse_get_dwm_client(const char *msg, Window *win)
+{
+  char error_buffer[100];
+
+  yajl_val parent = yajl_tree_parse(msg, error_buffer, 100);
+
+  if (parent == NULL) {
+    fputs("Failed to parse message from client\n", stderr);
+    fprintf(stderr, "%s\n", error_buffer);
+    return -1;
+  }
+
+  // Format:
+  // {
+  //   "client_window_id": <client window id>
+  // }
+  const char *win_path[] = {"client_window_id", 0};
+  yajl_val win_val = yajl_tree_get(parent, win_path, yajl_t_number);
+
+  if (win_val == NULL) {
+    fputs("No client window id found in client message\n", stderr);
+    return -1;
+  }
+
+  *win = YAJL_GET_INTEGER(win_val);
+
+  yajl_tree_free(parent);
+
+  return 0;
+}
+
 int
 ipc_init(const char *socket_path, const int p_epoll_fd,
     IPCCommand commands[], int commands_len)
@@ -625,38 +657,6 @@ ipc_get_layouts(IPCClient *c, const Layout layouts[], const int layouts_len)
   dump_layouts(gen, layouts, layouts_len);
 
   ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_LAYOUTS);
-}
-
-static int
-ipc_parse_get_dwm_client(const char *msg, Window *win)
-{
-  char error_buffer[100];
-
-  yajl_val parent = yajl_tree_parse(msg, error_buffer, 100);
-
-  if (parent == NULL) {
-    fputs("Failed to parse message from client\n", stderr);
-    fprintf(stderr, "%s\n", error_buffer);
-    return -1;
-  }
-
-  // Format:
-  // {
-  //   "client_window_id": <client window id>
-  // }
-  const char *win_path[] = {"client_window_id", 0};
-  yajl_val win_val = yajl_tree_get(parent, win_path, yajl_t_number);
-
-  if (win_val == NULL) {
-    fputs("No client window id found in client message\n", stderr);
-    return -1;
-  }
-
-  *win = YAJL_GET_INTEGER(win_val);
-
-  yajl_tree_free(parent);
-
-  return 0;
 }
 
 int ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
