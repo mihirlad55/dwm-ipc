@@ -36,13 +36,11 @@ typedef enum IPCMessageType {
   IPC_TYPE_EVENT = 6
 } IPCMessageType;
 
-
 typedef struct dwm_ipc_header {
   uint8_t magic[IPC_MAGIC_LEN];
   uint32_t size;
   uint8_t type;
 } __attribute((packed)) dwm_ipc_header_t;
-
 
 static int
 recv_message(uint8_t *msg_type, uint32_t *reply_size, uint8_t **reply)
@@ -226,6 +224,19 @@ is_signed_int(const char *s)
   return 1;
 }
 
+static void
+print_socket_reply()
+{
+  IPCMessageType reply_type;
+  uint32_t reply_size;
+  char *reply;
+
+  read_socket(&reply_type, &reply_size, &reply);
+
+  printf("%.*s\n", reply_size, reply);
+  free(reply);
+}
+
 static int
 run_command(const char *name, char *args[], int argc)
 {
@@ -259,14 +270,7 @@ run_command(const char *name, char *args[], int argc)
 
   send_message(IPC_TYPE_RUN_COMMAND, msg_size, (uint8_t *)msg);
 
-  IPCMessageType reply_type;
-  uint32_t reply_size;
-  char *reply;
-
-  read_socket(&reply_type, &reply_size, &reply);
-
-  printf("%.*s\n", reply_size, reply);
-  free(reply);
+  print_socket_reply();
 
   yajl_gen_free(gen);
 
@@ -277,15 +281,7 @@ static int
 get_monitors()
 {
   send_message(IPC_TYPE_GET_MONITORS, 1, (uint8_t *)"");
-  IPCMessageType msg_type;
-  uint32_t msg_size;
-  char *msg;
-
-  read_socket(&msg_type, &msg_size, &msg);
-
-  printf("%.*s\n", msg_size, msg);
-  free(msg);
-
+  print_socket_reply();
   return 0;
 }
 
@@ -293,14 +289,7 @@ static int
 get_tags()
 {
   send_message(IPC_TYPE_GET_TAGS, 1, (uint8_t *)"");
-  IPCMessageType msg_type;
-  uint32_t msg_size;
-  char *msg;
-
-  read_socket(&msg_type, &msg_size, &msg);
-
-  printf("%.*s\n", msg_size, msg);
-  free(msg);
+  print_socket_reply();
 
   return 0;
 }
@@ -309,14 +298,7 @@ static int
 get_layouts()
 {
   send_message(IPC_TYPE_GET_LAYOUTS, 1, (uint8_t *)"");
-  IPCMessageType msg_type;
-  uint32_t msg_size;
-  char *msg;
-
-  read_socket(&msg_type, &msg_size, &msg);
-
-  printf("%.*s\n", msg_size, msg);
-  free(msg);
+  print_socket_reply();
 
   return 0;
 }
@@ -337,16 +319,9 @@ get_dwm_client(Window win)
 
   send_message(IPC_TYPE_GET_DWM_CLIENT, msg_size, (uint8_t *)msg);
 
-  IPCMessageType reply_type;
-  uint32_t reply_size;
-  char *reply;
-
-  read_socket(&reply_type, &reply_size, &reply);
-
-  printf("%.*s\n", reply_size, reply);
+  print_socket_reply();
 
   yajl_gen_free(gen);
-  free(reply);
 
   return 0;
 }
@@ -368,15 +343,9 @@ subscribe(const char *event)
 
   send_message(IPC_TYPE_SUBSCRIBE, msg_size, (uint8_t *)msg);
 
-  IPCMessageType reply_type;
-  uint32_t reply_size;
-  char *reply;
+  print_socket_reply();
 
   yajl_gen_free(gen);
-
-  read_socket(&reply_type, &reply_size, &reply);
-  printf("%.*s\n", reply_size, reply);
-  free(reply);
 
   return 0;
 }
@@ -468,13 +437,7 @@ main(int argc, char *argv[])
         subscribe(argv[j]);
       }
       while (1) {
-        IPCMessageType reply_type;
-        uint32_t reply_size;
-        char *reply;
-
-        read_socket(&reply_type, &reply_size, &reply);
-        printf("%s\n", reply);
-        free(reply);
+        print_socket_reply();
       }
     } else {
       fprintf(stderr, "Invalid argument '%s'\n", argv[i]);
