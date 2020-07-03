@@ -137,7 +137,12 @@ dump_layouts(yajl_gen gen, const Layout layouts[], const int layouts_len)
   yajl_gen_array_open(gen);
 
   for (int i = 0; i < layouts_len; i++) {
+    yajl_gen_map_open(gen);
+    ystr("layout_symbol");
     ystr(layouts[i].symbol);
+    ystr("layout_function_address");
+    yajl_gen_integer(gen, (long long)layouts[i].arrange);
+    yajl_gen_map_close(gen);
   }
 
   yajl_gen_array_close(gen);
