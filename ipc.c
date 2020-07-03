@@ -275,7 +275,7 @@ ipc_parse_run_command(char *msg, char **name, unsigned int *argc,
       *ipc_command.arg_types == ARG_TYPE_NONE) {
     *args = (Arg*)(malloc(sizeof(Arg)));
     (*args)[0].f = 0;
-    argc++;
+    (*argc)++;
   } else if (*argc > 0 && *argc == ipc_command.argc) {
     *args = (Arg*)calloc(*argc, sizeof(Arg));
 
