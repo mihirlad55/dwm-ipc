@@ -29,7 +29,7 @@ ipc-client: ipc-client.c
 	${CC} ipc-client.c -o $@ ${LDFLAGS}
 
 clean:
-	rm -f dwm ${OBJ} dwm-${VERSION}.tar.gz
+	rm -f dwm config.h ${OBJ} dwm-${VERSION}.tar.gz
 	rm -rf ~/shared/dwm-ipc
 
 dist: clean
