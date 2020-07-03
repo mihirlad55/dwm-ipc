@@ -6,6 +6,8 @@ include config.mk
 SRC = drw.c dwm.c util.c ipc.c yajl_dumps.c IPCClient.c
 OBJ = ${SRC:.c=.o}
 
+debug: CFLAGS += -g
+
 all: options dwm ipc-client dwm-msg
 
 options:
