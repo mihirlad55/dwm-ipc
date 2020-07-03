@@ -3,3 +3,4 @@
 config.h
 dwm
 ipc-client
+dwm-msg
