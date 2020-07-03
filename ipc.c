@@ -207,6 +207,19 @@ ipc_reply_prepare_send_message(yajl_gen gen, IPCClient *c, IPCMessageType
 }
 
 static int
+ipc_get_ipc_command(const char* name, IPCCommand *ipc_command)
+{
+  for (int i = 0; i < ipc_commands_len; i++) {
+    if (strcmp(ipc_commands[i].command_name, name) == 0) {
+      *ipc_command = ipc_commands[i];
+      return 0;
+    }
+  }
+
+  return -1;
+}
+
+static int
 ipc_parse_run_command(char *msg, char **name, unsigned int *argc,
     Arg *args[])
 {
@@ -222,13 +235,14 @@ ipc_parse_run_command(char *msg, char **name, unsigned int *argc,
   // Format:
   // {
   //   "command": "<command name>"
-  //   "args": [ "arg1", "arg2" ]
+  //   "args": [ "arg1", "arg2", ... ]
   // }
   const char *command_path[] = {"command", 0};
   yajl_val command_val = yajl_tree_get(parent, command_path, yajl_t_string);
 
   if (command_val == NULL) {
     fputs("No command key found in client message\n", stderr);
+    yajl_tree_free(parent);
     return -1;
   }
 
@@ -238,48 +252,79 @@ ipc_parse_run_command(char *msg, char **name, unsigned int *argc,
   strcpy(*name, command);
   fprintf(stderr, "Received command: %s\n", command);
 
+  IPCCommand ipc_command;
+  if (ipc_get_ipc_command(*name, &ipc_command) < 0) {
+    fprintf(stderr, "IPC Command %s not found\n", *name);
+    yajl_tree_free(parent);
+    return -1;
+  }
+
   const char *args_path[] = {"args", 0};
   yajl_val args_val = yajl_tree_get(parent, args_path, yajl_t_array);
 
   if (args_val == NULL) {
     fputs("No args key found in client message\n", stderr);
+    yajl_tree_free(parent);
     return -1;
   }
 
   *argc = args_val->u.array.len;
 
-  if (*argc == 0) {
+  // TODO: Refactor this and make it less ugly. Maybe split into functions
+  if (*argc == 0 && ipc_command.argc == 1 &&
+      *ipc_command.arg_types == ARG_TYPE_NONE) {
     *args = (Arg*)(malloc(sizeof(Arg)));
     (*args)[0].f = 0;
     argc++;
-  } else if (*argc > 0) {
+  } else if (*argc > 0 && *argc == ipc_command.argc) {
     *args = (Arg*)calloc(*argc, sizeof(Arg));
 
     for (int i = 0; i < *argc; i++) {
       yajl_val arg_val = args_val->u.array.values[i];
+      ArgType exp_type = ipc_command.arg_types[i];
 
       if (YAJL_IS_NUMBER(arg_val)) {
         if (YAJL_IS_INTEGER(arg_val)) {
-          if (YAJL_GET_INTEGER(arg_val) < 0) {
+          if (YAJL_GET_INTEGER(arg_val) <= 0 && exp_type == ARG_TYPE_SINT) {
             (*args)[i].i = YAJL_GET_INTEGER(arg_val);
             fprintf(stderr, "i=%d\n", (*args)[i].i);
-          } else {
+          } else if (YAJL_GET_INTEGER(arg_val) > 0 &&
+                     (exp_type == ARG_TYPE_SINT || exp_type == ARG_TYPE_UINT)) {
             (*args)[i].ui = YAJL_GET_INTEGER(arg_val);
             fprintf(stderr, "ui=%d\n", (*args)[i].i);
+          } else if (YAJL_GET_INTEGER(arg_val) && exp_type == ARG_TYPE_PTR) {
+            (*args)[i].v = (void*)YAJL_GET_INTEGER(arg_val);
+            fprintf(stderr, "v=%p\n", (*args)[i].v);
+          } else {
+            fprintf(stderr, "Invalid arg: expected ArgType %d\n",  exp_type);
+            yajl_tree_free(parent);
+            return -1;
           }
-        } else {
+        } else if (exp_type == ARG_TYPE_FLOAT) {
           (*args)[i].f = (float)YAJL_GET_DOUBLE(arg_val);
           fprintf(stderr, "f=%f\n", (*args)[i].f);
+        } else {
+          fprintf(stderr, "Invalid arg: expected ArgType %d\n",  exp_type);
+          yajl_tree_free(parent);
+          return -1;
         }
-      } else if (YAJL_IS_STRING(arg_val)) {
-        // TODO: How do we detect in an array of Arg if this type was used and
-        // free it accordingly
+      } else if (YAJL_IS_STRING(arg_val) && exp_type == ARG_TYPE_STR) {
         char* arg_s = YAJL_GET_STRING(arg_val);
         size_t arg_s_size = (strlen(arg_s) + 1) * sizeof(char);
         (*args)[i].v = (char*)malloc(arg_s_size);
         strcpy((char*)(*args)[i].v, arg_s);
       }
+      else {
+        fprintf(stderr, "Invalid arg: expected ArgType %d\n",  exp_type);
+        yajl_tree_free(parent);
+        return -1;
+      }
     }
+  } else {
+    fprintf(stderr, "Got %d args for command %s, expected %d", *argc, *name,
+        ipc_command.argc);
+    yajl_tree_free(parent);
+    return -1;
   }
 
   yajl_tree_free(parent);
@@ -462,38 +507,34 @@ ipc_run_command(IPCClient *ipc_client, char *msg)
   char *name;
   unsigned int argc;
   Arg *args;
+  IPCCommand ipc_command;
 
-  // TODO: Implement additional args for specifying client
-  // TODO: Add argument safety checking
   if (ipc_parse_run_command(msg, &name, &argc, &args) < 0) {
     ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND);
     return -1;
   }
 
-  for (int i = 0; i < ipc_commands_len; i++) {
-    IPCCommand *c = ipc_commands + i;
-    if (strcmp(c->command_name, name) == 0) {
-      if (argc != c->argc) {
-        free(args);
-        free(name);
-        ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND);
-        return -1;
-      } else if (argc == 1) {
-        c->func.single_param(args);
-        return 0;
-      } else if (argc > 1) {
-        c->func.array_param(args, argc);
-        free(args);
-        free(name);
-        return 0;
-      }
-    }
+  if (ipc_get_ipc_command(name, &ipc_command) < 0) {
+    ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND);
+    free(args);
+    free(name);
+    return -1;
   }
 
-  ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND);
+  if (argc == 1)
+    ipc_command.func.single_param(args);
+  else if (argc > 1)
+    ipc_command.func.array_param(args, argc);
+
+  for (int i = 0; i < argc; i++) {
+    if (ipc_command.arg_types[i] == ARG_TYPE_STR)
+      free((void *)args[i].v);
+  }
+
+  ipc_prepare_reply_success(ipc_client, IPC_TYPE_RUN_COMMAND);
   free(args);
   free(name);
-  return -2;
+  return 0;
 }
 
 void

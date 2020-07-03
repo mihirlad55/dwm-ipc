@@ -98,21 +98,21 @@ static Key keys[] = {
 };
 
 static IPCCommand ipccommands[] = {
-  { "view",           {view},           1 },
-  { "toggleview",     {toggleview},     1 },
-  { "tag",            {tag},            1 },
-  { "toggletag",      {toggletag},      1 },
-  { "tagmon",         {tagmon},         1 },
-  { "focusmon",       {focusmon},       1 },
-  { "focusstack",     {focusstack},     1 },
-  { "zoom",           {zoom},           1 },
-  { "spawn",          {spawn},          1 },
-  { "incnmaster",     {incnmaster},     1 },
-  { "killclient",     {killclient},     1 },
-  { "togglefloating", {togglefloating}, 1 },
-  { "setmfact",       {setmfact},       1 },
-  { "setlayout",      {setlayout},      1 },
-  { "quit",           {quit},           1 },
+  IPCCOMMAND(  view,                1,      {ARG_TYPE_UINT}   ),
+  IPCCOMMAND(  toggleview,          1,      {ARG_TYPE_UINT}   ),
+  IPCCOMMAND(  tag,                 1,      {ARG_TYPE_UINT}   ),
+  IPCCOMMAND(  toggletag,           1,      {ARG_TYPE_UINT}   ),
+  IPCCOMMAND(  tagmon,              1,      {ARG_TYPE_UINT}   ),
+  IPCCOMMAND(  focusmon,            1,      {ARG_TYPE_SINT}   ),
+  IPCCOMMAND(  focusstack,          1,      {ARG_TYPE_SINT}   ),
+  IPCCOMMAND(  zoom,                1,      {ARG_TYPE_NONE}   ),
+  IPCCOMMAND(  spawn,               1,      {ARG_TYPE_PTR}    ),
+  IPCCOMMAND(  incnmaster,          1,      {ARG_TYPE_SINT}   ),
+  IPCCOMMAND(  killclient,          1,      {ARG_TYPE_SINT}   ),
+  IPCCOMMAND(  togglefloating,      1,      {ARG_TYPE_NONE}   ),
+  IPCCOMMAND(  setmfact,            1,      {ARG_TYPE_FLOAT}  ),
+  IPCCOMMAND(  setlayout,           1,      {ARG_TYPE_PTR}    ),
+  IPCCOMMAND(  quit,                1,      {ARG_TYPE_PTR}    )
 };
 
 /* button definitions */

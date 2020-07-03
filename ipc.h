@@ -12,6 +12,9 @@
   { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
 #define IPC_MAGIC_LEN 7 // Not including null char
 
+#define IPCCOMMAND(FUNC, ARGC, TYPES)                                          \
+  { #FUNC, {FUNC }, ARGC, (ArgType[ARGC])TYPES }
+
 typedef enum IPCMessageType {
   IPC_TYPE_RUN_COMMAND = 0,
   IPC_TYPE_GET_MONITORS = 1,
@@ -39,15 +42,25 @@ typedef struct dwm_ipc_header {
   uint8_t type;
 } __attribute((packed)) dwm_ipc_header_t;
 
+typedef enum ArgType {
+  ARG_TYPE_NONE = 0,
+  ARG_TYPE_UINT = 1,
+  ARG_TYPE_SINT = 2,
+  ARG_TYPE_FLOAT = 3,
+  ARG_TYPE_PTR = 4,
+  ARG_TYPE_STR = 5
+} ArgType;
+
 typedef union ArgFunction {
   void (*single_param)(const Arg *);
   void (*array_param)(const Arg *, int);
 } ArgFunction;
 
 typedef struct IPCCommand {
-  const char *command_name;
+  char *command_name;
   ArgFunction func;
-  const unsigned int argc;
+  unsigned int argc;
+  ArgType *arg_types;
 } IPCCommand;
 
 int ipc_init(const char *socket_path, const int epoll_fd, IPCCommand commands[],
