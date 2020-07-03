@@ -273,7 +273,7 @@ run_command(const char *name, char *args[], int argc)
   return 0;
 }
 
-int
+static int
 get_monitors()
 {
   send_message(IPC_TYPE_GET_MONITORS, 1, (uint8_t *)"");
@@ -289,7 +289,7 @@ get_monitors()
   return 0;
 }
 
-int
+static int
 get_tags()
 {
   send_message(IPC_TYPE_GET_TAGS, 1, (uint8_t *)"");
@@ -305,7 +305,7 @@ get_tags()
   return 0;
 }
 
-int
+static int
 get_layouts()
 {
   send_message(IPC_TYPE_GET_LAYOUTS, 1, (uint8_t *)"");
@@ -381,7 +381,7 @@ subscribe(const char *event)
   return 0;
 }
 
-void
+static void
 print_usage(const char *name)
 {
   printf("usage: %s <command> [...]\n", name);
