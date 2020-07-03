@@ -700,6 +700,8 @@ int ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
 
         return 0;
       }
+
+  ipc_prepare_reply_failure(ipc_client, IPC_TYPE_GET_DWM_CLIENT);
   return -1;
 }
 
