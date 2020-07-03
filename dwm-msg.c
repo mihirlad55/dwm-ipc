@@ -411,7 +411,9 @@ main(int argc, char *argv[])
 {
   if (argc < 2) {
     fprintf(stderr, "Expected an argument, got none.\n");
-    print_usage(argv[0]);
+    fprintf(stderr, "usage: %s <command> [...]\n", argv[0]);
+    fprintf(stderr, "Try '%s help'\n", argv[0]);
+    return 1;
   }
 
   connect_to_socket();
