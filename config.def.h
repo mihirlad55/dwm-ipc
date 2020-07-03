@@ -112,7 +112,7 @@ static IPCCommand ipccommands[] = {
   IPCCOMMAND(  togglefloating,      1,      {ARG_TYPE_NONE}   ),
   IPCCOMMAND(  setmfact,            1,      {ARG_TYPE_FLOAT}  ),
   IPCCOMMAND(  setlayout,           1,      {ARG_TYPE_PTR}    ),
-  IPCCOMMAND(  quit,                1,      {ARG_TYPE_PTR}    )
+  IPCCOMMAND(  quit,                1,      {ARG_TYPE_NONE}   )
 };
 
 /* button definitions */
