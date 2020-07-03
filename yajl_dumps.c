@@ -1,4 +1,5 @@
 #include "yajl_dumps.h"
+#include <stdint.h>
 
 int
 dump_tags(yajl_gen gen, const char *tags[], int tags_len)
@@ -140,8 +141,8 @@ dump_layouts(yajl_gen gen, const Layout layouts[], const int layouts_len)
     yajl_gen_map_open(gen);
     ystr("layout_symbol");
     ystr(layouts[i].symbol);
-    ystr("layout_function_address");
-    yajl_gen_integer(gen, (long long)layouts[i].arrange);
+    ystr("layout_address");
+    yajl_gen_integer(gen, (intptr_t)&layouts[i]);
     yajl_gen_map_close(gen);
   }
 
