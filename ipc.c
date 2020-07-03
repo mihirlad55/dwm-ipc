@@ -236,12 +236,13 @@ static int
 ipc_parse_run_command(char *msg, char **name, unsigned int *argc,
     Arg *args[])
 {
-  char error_buffer[100];
-  yajl_val parent = yajl_tree_parse(msg, error_buffer, 100);
+  char error_buffer[1000];
+  yajl_val parent = yajl_tree_parse(msg, error_buffer, 1000);
 
   if (parent == NULL) {
     fputs("Failed to parse command from client\n", stderr);
     fprintf(stderr, "%s\n", error_buffer);
+    fprintf(stderr, "Tried to parse: %s\n", msg);
     return -1;
   }
 
@@ -575,6 +576,7 @@ ipc_run_command(IPCClient *ipc_client, char *msg)
   else if (argc > 1)
     ipc_command.func.array_param(args, argc);
 
+  fprintf(stderr, "Called function for command %s\n", ipc_command.command_name);
   for (int i = 0; i < argc; i++) {
     if (ipc_command.arg_types[i] == ARG_TYPE_STR)
       free((void *)args[i].v);
