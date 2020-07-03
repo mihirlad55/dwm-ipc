@@ -74,12 +74,12 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
     if (n == 0) {
       if (read_bytes == 0) {
         fprintf(stderr, "Unexpectedly reached EOF while reading header.");
-        fprintf(stderr, "Read %" PRIu32 " bytes, expected %" PRIu32 " bytes.",
+        fprintf(stderr, "Read %" PRIu32 " bytes, expected %" PRIu32 " bytes.\n",
                 read_bytes, *reply_size);
         return -2;
       } else {
         fprintf(stderr, "Unexpectedly reached EOF while reading header.");
-        fprintf(stderr, "Read %" PRIu32 " bytes, expected %" PRIu32 " bytes.",
+        fprintf(stderr, "Read %" PRIu32 " bytes, expected %" PRIu32 " bytes.\n",
                 read_bytes, *reply_size);
         return -3;
       }
@@ -92,7 +92,7 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
 
   // Check if magic string in header matches
   if (memcmp(walk, IPC_MAGIC, IPC_MAGIC_LEN) != 0) {
-    fprintf(stderr, "Invalid magic string. Got '%.*s', expected '%s'",
+    fprintf(stderr, "Invalid magic string. Got '%.*s', expected '%s'\n",
             IPC_MAGIC_LEN, walk, IPC_MAGIC);
     return -3;
   }
@@ -115,7 +115,7 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
 
     if (n == 0) {
       fprintf(stderr, "Unexpectedly reached EOF while reading payload.");
-      fprintf(stderr, "Read %" PRIu32 " bytes, expected %" PRIu32 " bytes.",
+      fprintf(stderr, "Read %" PRIu32 " bytes, expected %" PRIu32 " bytes.\n",
               read_bytes, *reply_size);
       free(*reply);
       return -2;
