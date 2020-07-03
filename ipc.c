@@ -609,9 +609,10 @@ ipc_push_pending(IPCClient *c)
   if (n == c->buffer_size) {
       c->buffer_size = 0;
       free(c->buffer);
-      if (c->event.events & EPOLLOUT)
+      if (c->event.events & EPOLLOUT) {
         c->event.events -= EPOLLOUT;
-      epoll_ctl(epoll_fd, EPOLL_CTL_MOD, c->fd, &c->event);
+        epoll_ctl(epoll_fd, EPOLL_CTL_MOD, c->fd, &c->event);
+      }
       return n;
   }
 
