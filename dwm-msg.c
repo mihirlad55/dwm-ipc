@@ -9,6 +9,7 @@
 #include <sys/un.h>
 #include <yajl/yajl_gen.h>
 #include <ctype.h>
+#include <stdarg.h>
 
 #define IPC_MAGIC "DWM-IPC"
 #define IPC_MAGIC_ARR                                                          \
@@ -351,6 +352,21 @@ subscribe(const char *event)
 }
 
 static void
+usage_error(const char *prog_name, const char* format, ...)
+{
+  va_list args;
+  va_start(args, format);
+
+  fprintf(stderr, "Error: ");
+  vfprintf(stderr, format, args);
+  fprintf(stderr, "\nusage: %s <command> [...]\n", prog_name);
+  fprintf(stderr, "Try '%s help'\n", prog_name);
+
+  va_end(args);
+  exit(1);
+}
+
+static void
 print_usage(const char *name)
 {
   printf("usage: %s <command> [...]\n", name);
@@ -378,12 +394,9 @@ print_usage(const char *name)
 int
 main(int argc, char *argv[])
 {
-  if (argc < 2) {
-    fprintf(stderr, "Expected an argument, got none.\n");
-    fprintf(stderr, "usage: %s <command> [...]\n", argv[0]);
-    fprintf(stderr, "Try '%s help'\n", argv[0]);
-    return 1;
-  }
+  const char* prog_name = argv[0];
+  if (argc < 2)
+    usage_error(prog_name, "Expected an argument, got none");
 
   connect_to_socket();
   if (sock_fd == -1) {
@@ -393,13 +406,11 @@ main(int argc, char *argv[])
 
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "help") == 0) {
-      print_usage(argv[0]);
+      print_usage(prog_name);
       return 0;
     } else if (strcmp(argv[i], "run_command") == 0) {
-      if (++i >= argc) {
-        fprintf(stderr, "Error: No command specified\n");
-        return 1;
-      }
+      if (++i >= argc)
+        usage_error(prog_name, "No command specified");
       char *command = argv[i];
       char **command_args = argv + ++i;
       int command_argc = argc - i;
@@ -419,31 +430,21 @@ main(int argc, char *argv[])
         if (is_unsigned_int(argv[i])) {
           Window win = atol(argv[i]);
           get_dwm_client(win);
-        } else {
-          fprintf(stderr, "Error: expected unsigned integer argument\n");
-          fprintf(stderr, "usage: %s <command> [...]\n", argv[0]);
-          fprintf(stderr, "Try '%s help'\n", argv[0]);
-          return 1;
-        }
-      } else {
-        fprintf(stderr, "Error: expected the window id\n");
-        fprintf(stderr, "usage: %s <command> [...]\n", argv[0]);
-        fprintf(stderr, "Try '%s help'\n", argv[0]);
-        return 1;
-      }
+        } else
+          usage_error(prog_name, "Expected unsigned integer argument");
+      } else
+        usage_error(prog_name, "Expected the window id");
       return 0;
     } else if (strcmp(argv[i], "subscribe") == 0) {
-      for (int j = ++i; j < argc; j++) {
-        subscribe(argv[j]);
-      }
+      if (++i < argc) {
+        for (int j = i; j < argc; j++)
+          subscribe(argv[j]);
+      } else
+        usage_error(prog_name, "Expected event name");
       while (1) {
         print_socket_reply();
       }
-    } else {
-      fprintf(stderr, "Invalid argument '%s'\n", argv[i]);
-      fprintf(stderr, "usage: %s <command> [...]\n", argv[0]);
-      fprintf(stderr, "Try '%s help'\n", argv[0]);
-      return 1;
-    }
+    } else
+      usage_error(prog_name, "Invalid argument '%s'", argv[i]);
   }
 }
