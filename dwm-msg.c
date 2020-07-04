@@ -37,6 +37,7 @@ typedef enum IPCMessageType {
   IPC_TYPE_EVENT = 6
 } IPCMessageType;
 
+// Every IPC message must begin with this
 typedef struct dwm_ipc_header {
   uint8_t magic[IPC_MAGIC_LEN];
   uint32_t size;
@@ -93,6 +94,7 @@ recv_message(uint8_t *msg_type, uint32_t *reply_size, uint8_t **reply)
 
   (*reply) = malloc(*reply_size);
 
+  // Extract payload
   read_bytes = 0;
   while (read_bytes < *reply_size) {
     const int n = read(sock_fd, *reply + read_bytes, *reply_size - read_bytes);
@@ -125,6 +127,7 @@ read_socket(IPCMessageType *msg_type, uint32_t *msg_size, char **msg)
     ret = recv_message((uint8_t *)msg_type, msg_size, (uint8_t **)msg);
 
     if (ret < 0) {
+      // Try again (non-fatal error)
       if (ret == -1 && (errno == EINTR || errno == EAGAIN))
         continue;
 
@@ -144,6 +147,7 @@ connect_to_socket()
 
   int sock = socket(AF_UNIX, SOCK_STREAM, 0);
 
+  // Initialize struct to 0
   memset(&addr, 0, sizeof(struct sockaddr_un));
 
   addr.sun_family = AF_UNIX;
@@ -166,7 +170,10 @@ send_message(IPCMessageType msg_type, uint32_t msg_size, uint8_t *msg)
   size_t header_size = sizeof(dwm_ipc_header_t);
 
   uint8_t buffer[header_size + header.size];
+
+  // Copy header to buffer
   memcpy(buffer, &header, header_size);
+  // Copy message to buffer
   memcpy(buffer + header_size, msg, header.size);
 
   write(sock_fd, buffer, header_size + header.size);
@@ -180,6 +187,7 @@ is_float(const char *s)
   size_t len = strlen(s);
   int is_dot_used = 0;
 
+  // Floats can only have one decimal point in between or digits
   for (int i = 0; i < len; i++) {
     if (isdigit(s[i]))
       continue;
@@ -198,6 +206,7 @@ is_unsigned_int(const char *s)
 {
   size_t len = strlen(s);
 
+  // Unsigned int can only have digits
   for (int i = 0; i < len; i++) {
     if (isdigit(s[i]))
       continue;
@@ -213,6 +222,7 @@ is_signed_int(const char *s)
 {
   size_t len = strlen(s);
 
+  // Signed int can only have digits and a negative sign at the start
   for (int i = 0; i < len; i++) {
     if (isdigit(s[i]))
       continue;
@@ -246,6 +256,11 @@ run_command(const char *name, char *args[], int argc)
 
   yajl_gen gen = yajl_gen_alloc(NULL);
 
+  // Message format:
+  // {
+  //   "command": "<name>",
+  //   "args": [ ... ]
+  // }
   yajl_gen_map_open(gen);
   ystr("command"); ystr(name);
   ystr("args");
@@ -312,6 +327,10 @@ get_dwm_client(Window win)
 
   yajl_gen gen = yajl_gen_alloc(NULL);
 
+  // Message format:
+  // {
+  //   "client_window_id": "<win>"
+  // }
   yajl_gen_map_open(gen);
   ystr("client_window_id"); yajl_gen_integer(gen, win);
   yajl_gen_map_close(gen);
@@ -335,6 +354,11 @@ subscribe(const char *event)
 
   yajl_gen gen = yajl_gen_alloc(NULL);
 
+  // Message format:
+  // {
+  //   "event": "<event>",
+  //   "action": "subscribe"
+  // }
   yajl_gen_map_open(gen);
   ystr("event"); ystr(event);
   ystr("action"); ystr("subscribe");
@@ -395,6 +419,7 @@ int
 main(int argc, char *argv[])
 {
   const char* prog_name = argv[0];
+  // Need at least command argument
   if (argc < 2)
     usage_error(prog_name, "Expected an argument, got none");
 
@@ -411,8 +436,11 @@ main(int argc, char *argv[])
     } else if (strcmp(argv[i], "run_command") == 0) {
       if (++i >= argc)
         usage_error(prog_name, "No command specified");
+      // Command name
       char *command = argv[i];
+      // Command arguments are everything after command name
       char **command_args = argv + ++i;
+      // Number of command arguments
       int command_argc = argc - i;
       run_command(command, command_args, command_argc);
       return 0;
@@ -441,6 +469,7 @@ main(int argc, char *argv[])
           subscribe(argv[j]);
       } else
         usage_error(prog_name, "Expected event name");
+      // Keep listening for events forever
       while (1) {
         print_socket_reply();
       }
