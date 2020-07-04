@@ -19,6 +19,8 @@ static IPCClientList ipc_clients = NULL;
 static int epoll_fd = -1;
 static IPCCommand *ipc_commands;
 static int ipc_commands_len;
+// Max size is 1 MB
+const uint32_t MAX_MESSAGE_SIZE = 1000000;
 
 static int
 ipc_create_socket(const char *filename)
@@ -116,6 +118,12 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
   // Extract reply size
   memcpy(reply_size, walk, sizeof(uint32_t));
   walk += sizeof(uint32_t);
+
+  if (*reply_size > MAX_MESSAGE_SIZE) {
+    fprintf(stderr, "Message too long: %"PRIu32" bytes. ", *reply_size);
+    fprintf(stderr, "Maximum message size is: %d\n", MAX_MESSAGE_SIZE);
+    return -4;
+  }
 
   // Extract message type
   memcpy(msg_type, walk, sizeof(uint8_t));
@@ -528,7 +536,7 @@ ipc_read_client(int fd, IPCMessageType *msg_type, uint32_t *msg_size, char **msg
         (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
       return -2;
 
-    fprintf(stderr, "Error reading message: dropping client at fd %d", fd);
+    fprintf(stderr, "Error reading message: dropping client at fd %d\n", fd);
     ipc_drop_client(fd);
 
     return -1;
