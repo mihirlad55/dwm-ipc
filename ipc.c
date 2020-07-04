@@ -11,6 +11,7 @@
 #include <stdarg.h>
 
 #include "ipc.h"
+#include "util.h"
 #include "IPCClient.h"
 #include "yajl_dumps.h"
 
@@ -24,6 +25,8 @@ ipc_create_socket(const char *filename)
 {
   fputs("In create socket function\n", stderr);
   struct sockaddr_un addr;
+  char *normal_filename;
+  char *parent;
   const size_t addr_size = sizeof(struct sockaddr_un);
   const int sock_type = SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
 
@@ -34,8 +37,13 @@ ipc_create_socket(const char *filename)
   // nonstandard fields in the structure
   memset(&addr, 0, addr_size);
 
-  // TODO: Make parent directories to file
   // TODO: Resolve tilde
+
+  // Normalize path and create parent directories
+  normalizepath(filename, &normal_filename);
+  parentdir(normal_filename, &parent);
+  mkdirp(parent);
+  free(parent);
 
   addr.sun_family = AF_LOCAL;
   strcpy(addr.sun_path, filename);
