@@ -23,30 +23,29 @@ static int ipc_commands_len;
 static int
 ipc_create_socket(const char *filename)
 {
-  fputs("In create socket function\n", stderr);
   struct sockaddr_un addr;
   char *normal_filename;
   char *parent;
   const size_t addr_size = sizeof(struct sockaddr_un);
   const int sock_type = SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
 
+  normalizepath(filename, &normal_filename);
+
   // In case socket file exists
-  unlink(filename);
+  unlink(normal_filename);
 
   // For portability clear the addr structure, since some implementations have
   // nonstandard fields in the structure
   memset(&addr, 0, addr_size);
 
-  // TODO: Resolve tilde
-
-  // Normalize path and create parent directories
-  normalizepath(filename, &normal_filename);
   parentdir(normal_filename, &parent);
+  // Create parent directories
   mkdirp(parent);
   free(parent);
 
   addr.sun_family = AF_LOCAL;
-  strcpy(addr.sun_path, filename);
+  strcpy(addr.sun_path, normal_filename);
+  free(normal_filename);
 
   const int sock_fd = socket(AF_LOCAL, sock_type, 0);
   if (sock_fd == -1) {
@@ -54,15 +53,21 @@ ipc_create_socket(const char *filename)
     return -1;
   }
 
+  fprintf(stderr, "Created socket at %s\n", addr.sun_path);
+
   if (bind(sock_fd, (const struct sockaddr *)&addr, addr_size) == -1) {
     fputs("Failed to bind socket\n", stderr);
     return -1;
   }
 
+  fprintf(stderr, "Socket binded\n");
+
   if (listen(sock_fd, 5) < 0) {
     fputs("Failed to listen for connections on socket\n", stderr);
     return -1;
   }
+
+  fprintf(stderr, "Now listening for connections on socket\n");
 
   return sock_fd;
 }
