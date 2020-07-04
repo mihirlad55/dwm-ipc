@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <yajl/yajl_tree.h>
 #include <yajl/yajl_gen.h>
+#include <stdarg.h>
 
 #include "ipc.h"
 #include "IPCClient.h"
@@ -562,16 +563,12 @@ ipc_run_command(IPCClient *ipc_client, char *msg)
   IPCCommand ipc_command;
 
   if (ipc_parse_run_command(msg, &name, &argc, &args) < 0) {
-    ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND);
+    ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND,
+        "Failed to parse run command");
     return -1;
   }
 
-  if (ipc_get_ipc_command(name, &ipc_command) < 0) {
-    ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND);
-    free(args);
-    free(name);
-    return -1;
-  }
+  ipc_get_ipc_command(name, &ipc_command);
 
   if (argc == 1)
     ipc_command.func.single_param(args);
@@ -703,7 +700,8 @@ int ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
         return 0;
       }
 
-  ipc_prepare_reply_failure(ipc_client, IPC_TYPE_GET_DWM_CLIENT);
+  ipc_prepare_reply_failure(ipc_client, IPC_TYPE_GET_DWM_CLIENT,
+      "Client with window id %d not found", win);
   return -1;
 }
 
@@ -737,7 +735,8 @@ ipc_subscribe(IPCClient *c, const char *msg)
     fprintf(stderr, "Unsubscribing client on fd %d to %d", c->fd, event);
     c->subscriptions ^= event;
   } else {
-    ipc_prepare_reply_failure(c, IPC_TYPE_SUBSCRIBE);
+    ipc_prepare_reply_failure(c, IPC_TYPE_SUBSCRIBE,
+        "Invalid subscription action");
     return -1;
   }
 
@@ -747,12 +746,22 @@ ipc_subscribe(IPCClient *c, const char *msg)
 }
 
 void
-ipc_prepare_reply_failure(IPCClient *c, IPCMessageType msg_type)
+ipc_prepare_reply_failure(IPCClient *c, IPCMessageType msg_type,
+    const char* format, ...)
 {
-  const char *failure_msg = "{\"result\":\"failure\"}";
-  const size_t msg_len = strlen(failure_msg) + 1; // +1 for null char
+  va_list args;
+  yajl_gen gen;
+  char buffer[300];
 
-  ipc_prepare_send_message(c, msg_type, msg_len, failure_msg);
+  ipc_reply_init_message(&gen);
+
+  va_start(args, format);
+  vsnprintf(buffer, 300, format, args);
+  dump_error_message(gen, buffer);
+
+  ipc_reply_prepare_send_message(gen, c, msg_type);
+
+  va_end(args);
 }
 
 void

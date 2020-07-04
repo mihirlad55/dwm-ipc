@@ -82,7 +82,8 @@ void ipc_prepare_send_message(IPCClient *c, const IPCMessageType msg_type,
 
 int ipc_push_pending(IPCClient *c);
 
-void ipc_prepare_reply_failure(IPCClient *c, IPCMessageType msg_type);
+void ipc_prepare_reply_failure(IPCClient *c, IPCMessageType msg_type,
+                               const char *format, ...);
 
 void ipc_prepare_reply_success(IPCClient *c, IPCMessageType msg_type);
 
@@ -98,7 +99,7 @@ void ipc_get_layouts(IPCClient *c, const Layout layouts[],
                      const int layouts_len);
 
 int ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
-                        const Monitor *mons);
+                       const Monitor *mons);
 
 int ipc_is_client_registered(int fd);
 

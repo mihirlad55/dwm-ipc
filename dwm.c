@@ -952,13 +952,11 @@ handlexevent(struct epoll_event *ev)
 int
 handlesockevent(struct epoll_event *ev)
 {
-  if (!(ev->events & EPOLLIN)) return -1;
+  if (!(ev->events & EPOLLIN))
+    return -1;
 
   fputs("Received EPOLLIN event on socket\n", stderr);
   int new_fd = ipc_accept_client(sock_fd, ev);
-
-  if (new_fd < 0)
-    return -1;
 
   return new_fd;
 }
@@ -1000,8 +998,8 @@ int handleipcevent(int fd, struct epoll_event *ev)
         return -1;
     } else {
       fprintf(stderr, "Invalid message type received from fd %d", fd);
-      // TODO: Add reason for failure
-      ipc_prepare_reply_failure(c, msg_type);
+      ipc_prepare_reply_failure(c, msg_type, "Invalid message type: %d",
+          msg_type);
     }
 
     free(msg);
@@ -1447,8 +1445,10 @@ run(void)
           fprintf(stderr, "Error handling IPC event on fd %d\n", event_fd);
         }
       } else {
-        fprintf(stderr, "Got event from unknown fd %d, ptr %p, u32 %d, u64 %lu ", event_fd, events[i].data.ptr, events[i].data.u32, events[i].data.u64);
-        fprintf(stderr, "with events %d\n", events[i].events);
+        fprintf(stderr, "Got event from unknown fd %d, ptr %p, u32 %d, u64 %lu",
+            event_fd, events[i].data.ptr, events[i].data.u32,
+            events[i].data.u64);
+        fprintf(stderr, " with events %d\n", events[i].events);
         return;
       }
     }

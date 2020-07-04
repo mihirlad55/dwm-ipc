@@ -25,4 +25,7 @@ int dump_client_change_event(yajl_gen gen, Client *old_client,
 
 int dump_layout_change_event(yajl_gen gen, const int mon_num,
                              const char *old_symbol, const char *new_symbol);
+
+int dump_error_message(yajl_gen gen, const char *reason);
+
 #endif // YAJL_DUMPS_H_

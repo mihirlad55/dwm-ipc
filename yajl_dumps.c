@@ -228,3 +228,16 @@ dump_layout_change_event(yajl_gen gen, const int mon_num,
 
   return 0;
 }
+
+int
+dump_error_message(yajl_gen gen, const char *reason)
+{
+  yajl_gen_map_open(gen);
+
+  ystr("result"); ystr("error");
+  ystr("reason"); ystr(reason);
+
+  yajl_gen_map_close(gen);
+
+  return 0;
+}
