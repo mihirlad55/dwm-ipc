@@ -66,44 +66,30 @@ typedef struct IPCCommand {
 } IPCCommand;
 
 int ipc_init(const char *socket_path, const int p_epoll_fd,
-    IPCCommand commands[], const int commands_len);
+             IPCCommand commands[], const int commands_len);
+
+void ipc_cleanup(int sock_fd);
 
 IPCClient *ipc_get_client(int fd);
 
+int ipc_is_client_registered(int fd);
+
 int ipc_accept_client();
+
+int ipc_drop_client(IPCClient *c);
 
 int ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
                     char **msg);
 
-int ipc_drop_client(IPCClient *c);
+int ipc_write_client(IPCClient *c);
 
 void ipc_prepare_send_message(IPCClient *c, const IPCMessageType msg_type,
                               const uint32_t msg_size, const char *msg);
-
-int ipc_push_pending(IPCClient *c);
 
 void ipc_prepare_reply_failure(IPCClient *c, IPCMessageType msg_type,
                                const char *format, ...);
 
 void ipc_prepare_reply_success(IPCClient *c, IPCMessageType msg_type);
-
-void ipc_cleanup(int socket_fd);
-
-int ipc_run_command(IPCClient *ipc_client, char *msg);
-
-void ipc_get_monitors(IPCClient *c, Monitor *selmon);
-
-void ipc_get_tags(IPCClient *c, const char *tags[], const int tags_len);
-
-void ipc_get_layouts(IPCClient *c, const Layout layouts[],
-                     const int layouts_len);
-
-int ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
-                       const Monitor *mons);
-
-int ipc_is_client_registered(int fd);
-
-int ipc_subscribe(IPCClient *c, const char *msg);
 
 void ipc_tag_change_event(int mon_num, TagState old_state, TagState new_state);
 
@@ -116,8 +102,8 @@ void ipc_layout_change_event(const int mon_num, const char *old_symbol,
 void ipc_send_events(Monitor *mons);
 
 int ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
-    const char *tags[], const int tags_len, const Layout *layouts,
-    const int layouts_len);
+                                  const char *tags[], const int tags_len,
+                                  const Layout *layouts, const int layouts_len);
 
 int ipc_handle_socket_epoll_event(struct epoll_event *ev);
 

@@ -455,6 +455,126 @@ ipc_parse_get_dwm_client(const char *msg, Window *win)
   return 0;
 }
 
+static int
+ipc_run_command(IPCClient *ipc_client, char *msg)
+{
+  unsigned int argc;
+  Arg *args;
+  IPCCommand ipc_command;
+
+  if (ipc_parse_run_command(msg, &argc, &args, &ipc_command) < 0) {
+    ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND,
+        "Failed to parse run command");
+    return -1;
+  }
+
+  if (argc == 1)
+    ipc_command.func.single_param(args);
+  else if (argc > 1)
+    ipc_command.func.array_param(args, argc);
+
+  fprintf(stderr, "Called function for command %s\n", ipc_command.command_name);
+  for (int i = 0; i < argc; i++) {
+    if (ipc_command.arg_types[i] == ARG_TYPE_STR)
+      free((void *)args[i].v);
+  }
+
+  ipc_prepare_reply_success(ipc_client, IPC_TYPE_RUN_COMMAND);
+  free(args);
+  return 0;
+}
+
+static void
+ipc_get_monitors(IPCClient *c, Monitor *mons)
+{
+  yajl_gen gen;
+  ipc_reply_init_message(&gen);
+  yajl_gen_array_open(gen);
+
+  for (Monitor *mon = mons; mon; mon = mon->next)
+    dump_monitor(gen, mon);
+
+  yajl_gen_array_close(gen);
+
+  ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_MONITORS);
+}
+
+static void
+ipc_get_tags(IPCClient *c, const char *tags[], const int tags_len)
+{
+  yajl_gen gen;
+  ipc_reply_init_message(&gen);
+
+  dump_tags(gen, tags, tags_len);
+
+  ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_TAGS);
+}
+
+static void
+ipc_get_layouts(IPCClient *c, const Layout layouts[], const int layouts_len)
+{
+  yajl_gen gen;
+  ipc_reply_init_message(&gen);
+
+  dump_layouts(gen, layouts, layouts_len);
+
+  ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_LAYOUTS);
+}
+
+static int
+ipc_get_dwm_client(IPCClient *ipc_client, const char *msg, const Monitor *mons)
+{
+  Window win;
+
+  if (ipc_parse_get_dwm_client(msg, &win) < 0)
+    return -1;
+
+	for (const Monitor *m = mons; m; m = m->next)
+		for (Client *c = m->clients; c; c = c->next)
+      if (c->win == win) {
+        yajl_gen gen;
+        ipc_reply_init_message(&gen);
+
+        dump_client(gen, c);
+
+        ipc_reply_prepare_send_message(gen, ipc_client,
+            IPC_TYPE_GET_DWM_CLIENT);
+
+        return 0;
+      }
+
+  ipc_prepare_reply_failure(ipc_client, IPC_TYPE_GET_DWM_CLIENT,
+      "Client with window id %d not found", win);
+  return -1;
+}
+
+static int
+ipc_subscribe(IPCClient *c, const char *msg)
+{
+  IPCSubscriptionAction action = IPC_ACTION_SUBSCRIBE;
+  IPCEvent event = 0;
+
+  if (ipc_parse_subscribe(msg, &action, &event)) {
+    ipc_prepare_reply_failure(c, IPC_TYPE_SUBSCRIBE, "Event does not exist");
+    return -1;
+  }
+
+  if (action == IPC_ACTION_SUBSCRIBE) {
+    fprintf(stderr, "Subscribing client on fd %d to %d\n", c->fd, event);
+    c->subscriptions |= event;
+  } else if (action == IPC_ACTION_UNSUBSCRIBE) {
+    fprintf(stderr, "Unsubscribing client on fd %d to %d\n", c->fd, event);
+    c->subscriptions ^= event;
+  } else {
+    ipc_prepare_reply_failure(c, IPC_TYPE_SUBSCRIBE,
+        "Invalid subscription action");
+    return -1;
+  }
+
+  ipc_prepare_reply_success(c, IPC_TYPE_SUBSCRIBE);
+  return 0;
+}
+
 int
 ipc_init(const char *socket_path, const int p_epoll_fd,
     IPCCommand commands[], const int commands_len)
@@ -482,10 +602,33 @@ ipc_init(const char *socket_path, const int p_epoll_fd,
   return socket_fd;
 }
 
+void
+ipc_cleanup(int sock_fd)
+{
+  IPCClient *c = ipc_clients;
+  while (c) {
+    IPCClient *next = c->next;
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &c->event);
+
+    if (c->buffer_size != 0) free(c->buffer);
+
+    free(c);
+    c = next;
+  }
+
+  shutdown(sock_fd, SHUT_RDWR);
+}
+
 IPCClient*
 ipc_get_client(int fd)
 {
   return ipc_list_get_client(ipc_clients, fd);
+}
+
+int
+ipc_is_client_registered(int fd)
+{
+  return (ipc_get_client(fd) != NULL);
 }
 
 int
@@ -523,7 +666,28 @@ ipc_accept_client()
 }
 
 int
-ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size, char **msg)
+ipc_drop_client(IPCClient *c)
+{
+  int res = close(c->fd);
+
+  if (res == 0) {
+    struct epoll_event ev;
+
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &ev);
+    ipc_list_remove_client(&ipc_clients, c);
+    free(c);
+
+    fprintf(stderr, "Successfully removed client on fd %d\n", c->fd);
+  } else if (res < 0 && res != EINTR) {
+    fprintf(stderr, "Failed to close fd %d\n", c->fd);
+  }
+
+  return res;
+}
+
+int
+ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
+    char **msg)
 {
   int ret = ipc_recv_message(c->fd, (uint8_t *)msg_type, msg_size,
       (uint8_t **)msg);
@@ -553,52 +717,29 @@ ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size, char
 }
 
 int
-ipc_drop_client(IPCClient *c)
+ipc_write_client(IPCClient *c)
 {
-  int res = close(c->fd);
+  const ssize_t n = ipc_write_message(c->fd, c->buffer, c->buffer_size);
 
-  if (res == 0) {
-    struct epoll_event ev;
+  if (n < 0) return n;
 
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &ev);
-    ipc_list_remove_client(&ipc_clients, c);
-    free(c);
+  // TODO: Deal with client timeouts
 
-    fprintf(stderr, "Successfully removed client on fd %d\n", c->fd);
-  } else if (res < 0 && res != EINTR) {
-    fprintf(stderr, "Failed to close fd %d\n", c->fd);
+  if (n == c->buffer_size) {
+      c->buffer_size = 0;
+      free(c->buffer);
+      if (c->event.events & EPOLLOUT) {
+        c->event.events -= EPOLLOUT;
+        epoll_ctl(epoll_fd, EPOLL_CTL_MOD, c->fd, &c->event);
+      }
+      return n;
   }
 
-  return res;
-}
+  c->buffer_size -= n;
+  memmove(c->buffer, c->buffer + n, c->buffer_size);
+  c->buffer = (char*)realloc(c->buffer, c->buffer_size);
 
-int
-ipc_run_command(IPCClient *ipc_client, char *msg)
-{
-  unsigned int argc;
-  Arg *args;
-  IPCCommand ipc_command;
-
-  if (ipc_parse_run_command(msg, &argc, &args, &ipc_command) < 0) {
-    ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND,
-        "Failed to parse run command");
-    return -1;
-  }
-
-  if (argc == 1)
-    ipc_command.func.single_param(args);
-  else if (argc > 1)
-    ipc_command.func.array_param(args, argc);
-
-  fprintf(stderr, "Called function for command %s\n", ipc_command.command_name);
-  for (int i = 0; i < argc; i++) {
-    if (ipc_command.arg_types[i] == ARG_TYPE_STR)
-      free((void *)args[i].v);
-  }
-
-  ipc_prepare_reply_success(ipc_client, IPC_TYPE_RUN_COMMAND);
-  free(args);
-  return 0;
+  return n;
 }
 
 void
@@ -627,124 +768,6 @@ ipc_prepare_send_message(IPCClient *c, const IPCMessageType msg_type,
 
   c->event.events |= EPOLLOUT;
   epoll_ctl(epoll_fd, EPOLL_CTL_MOD, c->fd, &c->event);
-}
-
-int
-ipc_push_pending(IPCClient *c)
-{
-  const ssize_t n = ipc_write_message(c->fd, c->buffer, c->buffer_size);
-
-  if (n < 0) return n;
-
-  // TODO: Deal with client timeouts
-
-  if (n == c->buffer_size) {
-      c->buffer_size = 0;
-      free(c->buffer);
-      if (c->event.events & EPOLLOUT) {
-        c->event.events -= EPOLLOUT;
-        epoll_ctl(epoll_fd, EPOLL_CTL_MOD, c->fd, &c->event);
-      }
-      return n;
-  }
-
-  c->buffer_size -= n;
-  memmove(c->buffer, c->buffer + n, c->buffer_size);
-  c->buffer = (char*)realloc(c->buffer, c->buffer_size);
-
-  return n;
-}
-
-void
-ipc_get_monitors(IPCClient *c, Monitor *mons)
-{
-  yajl_gen gen;
-  ipc_reply_init_message(&gen);
-  yajl_gen_array_open(gen);
-
-  for (Monitor *mon = mons; mon; mon = mon->next)
-    dump_monitor(gen, mon);
-
-  yajl_gen_array_close(gen);
-
-  ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_MONITORS);
-}
-
-void
-ipc_get_tags(IPCClient *c, const char *tags[], const int tags_len)
-{
-  yajl_gen gen;
-  ipc_reply_init_message(&gen);
-
-  dump_tags(gen, tags, tags_len);
-
-  ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_TAGS);
-}
-
-void
-ipc_get_layouts(IPCClient *c, const Layout layouts[], const int layouts_len)
-{
-  yajl_gen gen;
-  ipc_reply_init_message(&gen);
-
-  dump_layouts(gen, layouts, layouts_len);
-
-  ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_LAYOUTS);
-}
-
-int
-ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
-    const Monitor *mons)
-{
-  Window win;
-
-  if (ipc_parse_get_dwm_client(msg, &win) < 0)
-    return -1;
-
-	for (const Monitor *m = mons; m; m = m->next)
-		for (Client *c = m->clients; c; c = c->next)
-      if (c->win == win) {
-        yajl_gen gen;
-        ipc_reply_init_message(&gen);
-
-        dump_client(gen, c);
-
-        ipc_reply_prepare_send_message(gen, ipc_client,
-            IPC_TYPE_GET_DWM_CLIENT);
-
-        return 0;
-      }
-
-  ipc_prepare_reply_failure(ipc_client, IPC_TYPE_GET_DWM_CLIENT,
-      "Client with window id %d not found", win);
-  return -1;
-}
-
-int
-ipc_subscribe(IPCClient *c, const char *msg)
-{
-  IPCSubscriptionAction action = IPC_ACTION_SUBSCRIBE;
-  IPCEvent event = 0;
-
-  if (ipc_parse_subscribe(msg, &action, &event)) {
-    ipc_prepare_reply_failure(c, IPC_TYPE_SUBSCRIBE, "Event does not exist");
-    return -1;
-  }
-
-  if (action == IPC_ACTION_SUBSCRIBE) {
-    fprintf(stderr, "Subscribing client on fd %d to %d\n", c->fd, event);
-    c->subscriptions |= event;
-  } else if (action == IPC_ACTION_UNSUBSCRIBE) {
-    fprintf(stderr, "Unsubscribing client on fd %d to %d\n", c->fd, event);
-    c->subscriptions ^= event;
-  } else {
-    ipc_prepare_reply_failure(c, IPC_TYPE_SUBSCRIBE,
-        "Invalid subscription action");
-    return -1;
-  }
-
-  ipc_prepare_reply_success(c, IPC_TYPE_SUBSCRIBE);
-  return 0;
 }
 
 void
@@ -779,11 +802,11 @@ ipc_prepare_reply_success(IPCClient *c, IPCMessageType msg_type)
 }
 
 void
-ipc_tag_change_event(int mon_num, TagState old, TagState new)
+ipc_tag_change_event(int mon_num, TagState old_state, TagState new_state)
 {
   yajl_gen gen;
   ipc_event_init_message(&gen);
-  dump_tag_event(gen, mon_num, old, new);
+  dump_tag_event(gen, mon_num, old_state, new_state);
   ipc_event_prepare_send_message(gen, IPC_EVENT_TAG_CHANGE);
 }
 
@@ -853,7 +876,7 @@ ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
     ipc_drop_client(c);
   } else if (ev->events & EPOLLOUT) {
     fprintf(stderr, "Sending message to client at fd %d...\n", fd);
-    if (c->buffer_size) ipc_push_pending(c);
+    if (c->buffer_size) ipc_write_client(c);
   } else if (ev->events & EPOLLIN) {
     IPCMessageType msg_type;
     uint32_t msg_size;
@@ -905,25 +928,3 @@ ipc_handle_socket_epoll_event(struct epoll_event *ev)
   return new_fd;
 }
 
-int
-ipc_is_client_registered(int fd)
-{
-  return (ipc_get_client(fd) != NULL);
-}
-
-void
-ipc_cleanup(int sock_fd)
-{
-  IPCClient *c = ipc_clients;
-  while (c) {
-    IPCClient *next = c->next;
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &c->event);
-
-    if (c->buffer_size != 0) free(c->buffer);
-
-    free(c);
-    c = next;
-  }
-
-  shutdown(sock_fd, SHUT_RDWR);
-}
