@@ -359,6 +359,20 @@ ipc_parse_run_command(char *msg, char **name, unsigned int *argc,
 }
 
 static int
+ipc_event_stoi(const char *subscription, IPCEvent *event)
+{
+  if (strcmp(subscription, "tag_change_event") == 0)
+    *event = IPC_EVENT_TAG_CHANGE;
+  else if (strcmp(subscription, "selected_client_change_event") == 0)
+    *event = IPC_EVENT_SELECTED_CLIENT_CHANGE;
+  else if (strcmp(subscription, "layout_change_event") == 0)
+    *event = IPC_EVENT_LAYOUT_CHANGE;
+  else
+    return -1;
+  return 0;
+}
+
+static int
 ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe, IPCEvent *event)
 {
   char error_buffer[100];
@@ -713,20 +727,6 @@ int ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
   ipc_prepare_reply_failure(ipc_client, IPC_TYPE_GET_DWM_CLIENT,
       "Client with window id %d not found", win);
   return -1;
-}
-
-int
-ipc_event_stoi(const char *subscription, IPCEvent *event)
-{
-  if (strcmp(subscription, "tag_change_event") == 0)
-    *event = IPC_EVENT_TAG_CHANGE;
-  else if (strcmp(subscription, "selected_client_change_event") == 0)
-    *event = IPC_EVENT_SELECTED_CLIENT_CHANGE;
-  else if (strcmp(subscription, "layout_change_event") == 0)
-    *event = IPC_EVENT_LAYOUT_CHANGE;
-  else
-    return -1;
-  return 0;
 }
 
 int

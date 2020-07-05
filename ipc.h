@@ -102,8 +102,6 @@ int ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
 
 int ipc_is_client_registered(int fd);
 
-int ipc_event_stoi(const char *subscription, IPCEvent *event);
-
 int ipc_subscribe(IPCClient *c, const char *msg);
 
 void ipc_tag_change_event(int mon_num, TagState old_state, TagState new_state);
