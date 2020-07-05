@@ -17,6 +17,7 @@
 
 static IPCClientList ipc_clients = NULL;
 static int epoll_fd = -1;
+static int sock_fd = -1;
 static IPCCommand *ipc_commands;
 static int ipc_commands_len;
 // Max size is 1 MB
@@ -49,7 +50,7 @@ ipc_create_socket(const char *filename)
   strcpy(addr.sun_path, normal_filename);
   free(normal_filename);
 
-  const int sock_fd = socket(AF_LOCAL, sock_type, 0);
+  sock_fd = socket(AF_LOCAL, sock_type, 0);
   if (sock_fd == -1) {
     fputs("Failed to create socket\n", stderr);
     return -1;
@@ -446,7 +447,7 @@ ipc_parse_get_dwm_client(const char *msg, Window *win)
 
 int
 ipc_init(const char *socket_path, const int p_epoll_fd,
-    IPCCommand commands[], int commands_len)
+    IPCCommand commands[], const int commands_len)
 {
   struct epoll_event event;
 
@@ -478,7 +479,7 @@ ipc_get_client(int fd)
 }
 
 int
-ipc_accept_client(int sock_fd, struct epoll_event *event)
+ipc_accept_client(struct epoll_event *event)
 {
   fputs("In accept client function\n", stderr);
   int fd = -1;

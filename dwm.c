@@ -956,7 +956,7 @@ handlesockevent(struct epoll_event *ev)
     return -1;
 
   fputs("Received EPOLLIN event on socket\n", stderr);
-  int new_fd = ipc_accept_client(sock_fd, ev);
+  int new_fd = ipc_accept_client(ev);
 
   return new_fd;
 }
