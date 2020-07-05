@@ -15,6 +15,8 @@
 #include "IPCClient.h"
 #include "yajl_dumps.h"
 
+static struct sockaddr_un sockaddr;
+static struct epoll_event sock_epoll_event;
 static IPCClientList ipc_clients = NULL;
 static int epoll_fd = -1;
 static int sock_fd = -1;
@@ -26,7 +28,6 @@ const uint32_t MAX_MESSAGE_SIZE = 1000000;
 static int
 ipc_create_socket(const char *filename)
 {
-  struct sockaddr_un addr;
   char *normal_filename;
   char *parent;
   const size_t addr_size = sizeof(struct sockaddr_un);
@@ -39,15 +40,15 @@ ipc_create_socket(const char *filename)
 
   // For portability clear the addr structure, since some implementations have
   // nonstandard fields in the structure
-  memset(&addr, 0, addr_size);
+  memset(&sockaddr, 0, addr_size);
 
   parentdir(normal_filename, &parent);
   // Create parent directories
   mkdirp(parent);
   free(parent);
 
-  addr.sun_family = AF_LOCAL;
-  strcpy(addr.sun_path, normal_filename);
+  sockaddr.sun_family = AF_LOCAL;
+  strcpy(sockaddr.sun_path, normal_filename);
   free(normal_filename);
 
   sock_fd = socket(AF_LOCAL, sock_type, 0);
@@ -56,9 +57,9 @@ ipc_create_socket(const char *filename)
     return -1;
   }
 
-  fprintf(stderr, "Created socket at %s\n", addr.sun_path);
+  fprintf(stderr, "Created socket at %s\n", sockaddr.sun_path);
 
-  if (bind(sock_fd, (const struct sockaddr *)&addr, addr_size) == -1) {
+  if (bind(sock_fd, (const struct sockaddr *)&sockaddr, addr_size) == -1) {
     fputs("Failed to bind socket\n", stderr);
     return -1;
   }
@@ -580,10 +581,8 @@ int
 ipc_init(const char *socket_path, const int p_epoll_fd,
     IPCCommand commands[], const int commands_len)
 {
-  struct epoll_event event;
-
   // Initialize struct to 0
-  memset(&event, 0, sizeof(event));
+  memset(&sock_epoll_event, 0, sizeof(sock_epoll_event));
 
   int socket_fd = ipc_create_socket(socket_path);
   if (socket_fd < 0) return -1;;
@@ -593,9 +592,9 @@ ipc_init(const char *socket_path, const int p_epoll_fd,
 
   epoll_fd = p_epoll_fd;
 
-  event.data.fd = socket_fd;
-  event.events = EPOLLIN;
-  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket_fd, &event)) {
+  sock_epoll_event.data.fd = socket_fd;
+  sock_epoll_event.events = EPOLLIN;
+  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket_fd, &sock_epoll_event)) {
     fputs("Failed to add sock file descripttor to epoll", stderr);
     return -1;
   }
@@ -617,14 +616,15 @@ ipc_cleanup()
     c = next;
   }
 
-  struct epoll_event ev;
-  memset(&ev, 0, sizeof(struct epoll_event));
-  epoll_ctl(epoll_fd, EPOLL_CTL_DEL, sock_fd, &ev);
+  epoll_ctl(epoll_fd, EPOLL_CTL_DEL, sock_fd, &sock_epoll_event);
 
+  // Uninitialize all static variables
   epoll_fd = -1;
   sock_fd = -1;
   ipc_commands = NULL;
   ipc_commands_len = 0;
+  memset(&sock_epoll_event, 0, sizeof(struct epoll_event));
+  memset(&sockaddr, 0, sizeof(struct sockaddr_un));
 
   shutdown(sock_fd, SHUT_RDWR);
 }
@@ -644,7 +644,6 @@ ipc_is_client_registered(int fd)
 int
 ipc_accept_client()
 {
-  fputs("In accept client function\n", stderr);
   int fd = -1;
 
   struct sockaddr_un client_addr;
