@@ -218,7 +218,6 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 static Atom wmatom[WMLast], netatom[NetLast];
 static int epoll_fd;
 static int dpy_fd;
-static int sock_fd;
 static int running = 1;
 static Cur *cursor[CurLast];
 static Clr **scheme;
@@ -453,7 +452,7 @@ cleanup(void)
 
   ipc_cleanup();
 
-  if (close(epoll_fd)) {
+  if (close(epoll_fd) < 0) {
       fprintf(stderr, "Failed to close epoll file descriptor\n");
   }
 }
@@ -1374,7 +1373,7 @@ run(void)
         // -1 means EPOLLHUP
         if (handlexevent(events + i) == -1)
           return;
-      } else if (event_fd == sock_fd) {
+      } else if (event_fd == ipc_get_sock_fd()) {
         ipc_handle_socket_epoll_event(events + i);
       } else if (ipc_is_client_registered(event_fd)){
         if (ipc_handle_client_epoll_event(events + i, mons, tags, LENGTH(tags),
@@ -1632,9 +1631,9 @@ setupepoll(void)
     exit(1);
   }
 
-  sock_fd = ipc_init(DWM_SOCKET_PATH, epoll_fd, ipccommands,
-      LENGTH(ipccommands));
-  fprintf(stderr, "IPC Socket is fd %d\n", sock_fd);
+  if (ipc_init(DWM_SOCKET_PATH, epoll_fd, ipccommands, LENGTH(ipccommands)) < 0) {
+    fputs("Failed to initialize IPC\n", stderr);
+  }
 }
 
 void

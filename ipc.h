@@ -70,6 +70,8 @@ int ipc_init(const char *socket_path, const int p_epoll_fd,
 
 void ipc_cleanup();
 
+int ipc_get_sock_fd();
+
 IPCClient *ipc_get_client(int fd);
 
 int ipc_is_client_registered(int fd);

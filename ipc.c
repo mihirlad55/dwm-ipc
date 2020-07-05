@@ -629,6 +629,12 @@ ipc_cleanup()
   shutdown(sock_fd, SHUT_RDWR);
 }
 
+int
+ipc_get_sock_fd()
+{
+  return sock_fd;
+}
+
 IPCClient*
 ipc_get_client(int fd)
 {
