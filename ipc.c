@@ -23,7 +23,8 @@ static int sock_fd = -1;
 static IPCCommand *ipc_commands;
 static unsigned int ipc_commands_len;
 // Max size is 1 MB
-const uint32_t MAX_MESSAGE_SIZE = 1000000;
+static const uint32_t MAX_MESSAGE_SIZE = 1000000;
+static const int IPC_SOCKET_BACKLOG = 5;
 
 static int
 ipc_create_socket(const char *filename)
@@ -66,7 +67,7 @@ ipc_create_socket(const char *filename)
 
   fprintf(stderr, "Socket binded\n");
 
-  if (listen(sock_fd, 5) < 0) {
+  if (listen(sock_fd, IPC_SOCKET_BACKLOG) < 0) {
     fputs("Failed to listen for connections on socket\n", stderr);
     return -1;
   }

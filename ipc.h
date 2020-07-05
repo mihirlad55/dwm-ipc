@@ -15,8 +15,6 @@
 #define IPCCOMMAND(FUNC, ARGC, TYPES)                                          \
   { #FUNC, {FUNC }, ARGC, (ArgType[ARGC])TYPES }
 
-extern const uint32_t MAX_MESSAGE_SIZE;
-
 typedef enum IPCMessageType {
   IPC_TYPE_RUN_COMMAND = 0,
   IPC_TYPE_GET_MONITORS = 1,
