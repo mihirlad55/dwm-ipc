@@ -62,21 +62,21 @@ ipc_create_socket(const char *filename)
     return -1;
   }
 
-  fprintf(stderr, "Created socket at %s\n", sockaddr.sun_path);
+  DEBUG("Created socket at %s\n", sockaddr.sun_path);
 
   if (bind(sock_fd, (const struct sockaddr *)&sockaddr, addr_size) == -1) {
     fputs("Failed to bind socket\n", stderr);
     return -1;
   }
 
-  fprintf(stderr, "Socket binded\n");
+  DEBUG("Socket binded\n");
 
   if (listen(sock_fd, IPC_SOCKET_BACKLOG) < 0) {
     fputs("Failed to listen for connections on socket\n", stderr);
     return -1;
   }
 
-  fprintf(stderr, "Now listening for connections on socket\n");
+  DEBUG("Now listening for connections on socket\n");
 
   return sock_fd;
 }
@@ -199,7 +199,7 @@ ipc_write_message(int fd, const void *buf, size_t count)
     }
 
     written += n;
-    fprintf(stderr, "Wrote %zu/%zu to client at fd %d\n", written, count, fd);
+    DEBUG("Wrote %zu/%zu to client at fd %d\n", written, count, fd);
   }
 
   return written;
@@ -232,7 +232,7 @@ ipc_event_prepare_send_message(yajl_gen gen, IPCEvent event)
 
   for (IPCClient *c = ipc_clients; c; c = c->next) {
     if (c->subscriptions & event) {
-      fprintf(stderr, "Sending selected client change event to fd %d\n", c->fd);
+      DEBUG("Sending selected client change event to fd %d\n", c->fd);
       ipc_prepare_send_message(c, IPC_TYPE_EVENT, len, (char *)buffer);
     }
   }
@@ -338,7 +338,7 @@ ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
   }
 
   const char *command_name = YAJL_GET_STRING(command_val);
-  fprintf(stderr, "Received command: %s\n", command_name);
+  DEBUG("Received command: %s\n", command_name);
 
   if (ipc_get_ipc_command(command_name, ipc_command) < 0) {
     fprintf(stderr, "IPC Command %s not found\n", command_name);
@@ -377,18 +377,18 @@ ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
           // a signed int
           if (YAJL_GET_INTEGER(arg_val) <= 0 && exp_type == ARG_TYPE_SINT) {
             (*args)[i].i = YAJL_GET_INTEGER(arg_val);
-            fprintf(stderr, "i=%d\n", (*args)[i].i);
+            DEBUG("i=%d\n", (*args)[i].i);
             // Any values above 0 should be an unsigned int. The command can
             // expect either an unsigned int or signed int
           } else if (YAJL_GET_INTEGER(arg_val) > 0 &&
                      (exp_type == ARG_TYPE_SINT || exp_type == ARG_TYPE_UINT)) {
             (*args)[i].ui = YAJL_GET_INTEGER(arg_val);
-            fprintf(stderr, "ui=%d\n", (*args)[i].i);
+            DEBUG("ui=%d\n", (*args)[i].i);
             // If the command expects a pointer argument, convert the value to
             // a void pointer
           } else if (YAJL_GET_INTEGER(arg_val) && exp_type == ARG_TYPE_PTR) {
             (*args)[i].v = (void*)YAJL_GET_INTEGER(arg_val);
-            fprintf(stderr, "v=%p\n", (*args)[i].v);
+            DEBUG("v=%p\n", (*args)[i].v);
           } else {
             fprintf(stderr, "Invalid arg: expected ArgType %d\n",  exp_type);
             yajl_tree_free(parent);
@@ -397,7 +397,7 @@ ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
           // If the number is not an integer, it must be a float
         } else if (exp_type == ARG_TYPE_FLOAT) {
           (*args)[i].f = (float)YAJL_GET_DOUBLE(arg_val);
-          fprintf(stderr, "f=%f\n", (*args)[i].f);
+          DEBUG("f=%f\n", (*args)[i].f);
         } else {
           fprintf(stderr, "Invalid arg: expected ArgType %d\n",  exp_type);
           yajl_tree_free(parent);
@@ -420,7 +420,7 @@ ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
       }
     }
   } else {
-    fprintf(stderr, "Got %d args for command %s, expected %d", *argc,
+    DEBUG("Got %d args for command %s, expected %d", *argc,
         command_name, ipc_command->argc);
     yajl_tree_free(parent);
     return -1;
@@ -485,7 +485,7 @@ ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe,
   }
 
   const char* event_str = YAJL_GET_STRING(event_val);
-  fprintf(stderr, "Received event: %s\n", event_str);
+  DEBUG("Received event: %s\n", event_str);
 
   if (ipc_event_stoi(event_str, event) < 0)
     return -1;
@@ -584,7 +584,7 @@ ipc_run_command(IPCClient *ipc_client, char *msg)
   else if (argc > 1)
     ipc_command.func.array_param(args, argc);
 
-  fprintf(stderr, "Called function for command %s\n", ipc_command.command_name);
+  DEBUG("Called function for command %s\n", ipc_command.command_name);
 
   // Assumes parsing succeeded and correct argument types were given
   for (int i = 0; i < argc; i++) {
@@ -703,10 +703,10 @@ ipc_subscribe(IPCClient *c, const char *msg)
   }
 
   if (action == IPC_ACTION_SUBSCRIBE) {
-    fprintf(stderr, "Subscribing client on fd %d to %d\n", c->fd, event);
+    DEBUG("Subscribing client on fd %d to %d\n", c->fd, event);
     c->subscriptions |= event;
   } else if (action == IPC_ACTION_UNSUBSCRIBE) {
-    fprintf(stderr, "Unsubscribing client on fd %d to %d\n", c->fd, event);
+    DEBUG("Unsubscribing client on fd %d to %d\n", c->fd, event);
     c->subscriptions ^= event;
   } else {
     ipc_prepare_reply_failure(c, IPC_TYPE_SUBSCRIBE,
@@ -737,7 +737,7 @@ ipc_init(const char *socket_path, const int p_epoll_fd,
   sock_epoll_event.data.fd = socket_fd;
   sock_epoll_event.events = EPOLLIN;
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket_fd, &sock_epoll_event)) {
-    fputs("Failed to add sock file descripttor to epoll", stderr);
+    fputs("Failed to add sock file descriptor to epoll", stderr);
     return -1;
   }
 
@@ -822,7 +822,7 @@ ipc_accept_client()
 
   ipc_list_add_client(&ipc_clients, nc);
 
-  fprintf(stderr, "%s%d\n", "New client at fd: ", fd);
+  DEBUG("%s%d\n", "New client at fd: ", fd);
 
   return fd;
 }
@@ -842,7 +842,7 @@ ipc_drop_client(IPCClient *c)
     free(c->buffer);
     free(c);
 
-    fprintf(stderr, "Successfully removed client on fd %d\n", c->fd);
+    DEBUG("Successfully removed client on fd %d\n", c->fd);
   } else if (res < 0 && res != EINTR) {
     fprintf(stderr, "Failed to close fd %d\n", c->fd);
   }
@@ -874,10 +874,10 @@ ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
   nullterminate(msg, &len);
   *msg_size = len;
 
-  fprintf(stderr, "[fd %d] ", c->fd);
-  fprintf(stderr, "Received message: '%.*s' ", *msg_size, *msg);
-  fprintf(stderr, "Message type: %" PRIu8 " ", *msg_type);
-  fprintf(stderr, "Message size: %" PRIu32 "\n", *msg_size);
+  DEBUG("[fd %d] ", c->fd);
+  DEBUG("Received message: '%.*s' ", *msg_size, *msg);
+  DEBUG("Message type: %" PRIu8 " ", *msg_type);
+  DEBUG("Message size: %" PRIu32 "\n", *msg_size);
 
   return 0;
 }
@@ -1046,17 +1046,17 @@ ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
   IPCClient *c = ipc_get_client(fd);
 
   if (ev->events & EPOLLHUP) {
-    fprintf(stderr, "EPOLLHUP received from client at fd %d\n", fd);
+    DEBUG("EPOLLHUP received from client at fd %d\n", fd);
     ipc_drop_client(c);
   } else if (ev->events & EPOLLOUT) {
-    fprintf(stderr, "Sending message to client at fd %d...\n", fd);
+    DEBUG("Sending message to client at fd %d...\n", fd);
     if (c->buffer_size) ipc_write_client(c);
   } else if (ev->events & EPOLLIN) {
     IPCMessageType msg_type;
     uint32_t msg_size;
     char *msg;
 
-    fprintf(stderr, "Received message from fd %d\n", fd);
+    DEBUG("Received message from fd %d\n", fd);
     if (ipc_read_client(c, &msg_type, &msg_size, &msg) < 0)
       return -1;
 

@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "IPCClient.h"
+#include "util.h"
 
 IPCClient*
 ipc_client_new(int fd)
@@ -27,7 +28,7 @@ ipc_client_new(int fd)
 void
 ipc_list_add_client(IPCClientList *list, IPCClient *nc)
 {
-  fprintf(stderr, "Adding client with fd %d to list\n", nc->fd);
+  DEBUG("Adding client with fd %d to list\n", nc->fd);
 
   if (*list == NULL) {
     // List is empty, point list at first client

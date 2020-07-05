@@ -132,7 +132,7 @@ mkdirp(const char *path)
 
     if (res < 0) {
       if (errno == ENOENT) {
-        fprintf(stderr, "Making directory %s\n", curpath);
+        DEBUG("Making directory %s\n", curpath);
         if (mkdir(curpath, 0700) < 0) {
           fprintf(stderr, "Failed to make directory %s\n", curpath);
           perror("");
@@ -168,4 +168,3 @@ nullterminate(char **str, size_t *len)
 
   return 0;
 }
-

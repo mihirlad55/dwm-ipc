@@ -1367,7 +1367,7 @@ run(void)
 
     for (int i = 0; i < event_count; i++) {
       int event_fd = events[i].data.fd;
-      fprintf(stderr, "Got event from fd %d\n", event_fd);
+      DEBUG("Got event from fd %d\n", event_fd);
 
       if (event_fd == dpy_fd) {
         // -1 means EPOLLHUP
@@ -1617,7 +1617,7 @@ setupepoll(void)
   // Initialize struct to 0
   memset(&dpy_event, 0, sizeof(dpy_event));
 
-  fprintf(stderr, "Display socket is fd %d\n", dpy_fd);
+  DEBUG("Display socket is fd %d\n", dpy_fd);
 
   if (epoll_fd == -1) {
     fputs("Failed to create epoll file descriptor", stderr);
