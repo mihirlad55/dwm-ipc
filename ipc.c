@@ -627,6 +627,8 @@ ipc_cleanup()
   memset(&sock_epoll_event, 0, sizeof(struct epoll_event));
   memset(&sockaddr, 0, sizeof(struct sockaddr_un));
 
+  unlink(sockaddr.sun_path);
+
   shutdown(sock_fd, SHUT_RDWR);
 }
 
