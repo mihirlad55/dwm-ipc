@@ -26,6 +26,10 @@ static unsigned int ipc_commands_len;
 static const uint32_t MAX_MESSAGE_SIZE = 1000000;
 static const int IPC_SOCKET_BACKLOG = 5;
 
+/**
+ * Create IPC socket at specified path and return file descriptor to socket.
+ * This initializes the static variable sockaddr.
+ */
 static int
 ipc_create_socket(const char *filename)
 {
@@ -77,6 +81,14 @@ ipc_create_socket(const char *filename)
   return sock_fd;
 }
 
+/**
+ * Internal function used to receive IPC messages from a given file descriptor.
+ *
+ * Returns -1 on error reading (could be EAGAIN or EINTR)
+ * Returns -2 if EOF before header could be read
+ * Returns -3 if invalid IPC header
+ * Returns -4 if message length exceeds MAX_MESSAGE_SIZE
+ */
 static int
 ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
                      uint8_t **reply)
@@ -103,6 +115,7 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
         return -3;
       }
     } else if (n == -1) {
+      // errno will still be set
       return -1;
     }
 
@@ -149,6 +162,7 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
       // This would require saving the partial read in some way.
       if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
         continue;
+
       free(*reply);
       return -1;
     }
@@ -159,6 +173,14 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
   return 0;
 }
 
+/**
+ * Internal function used to write a buffer to a file descriptor
+ *
+ * Returns number of bytes written if successful write
+ * Returns 0 if no bytes were written due to EAGAIN or EWOULDBLOCK
+ * Returns -1 on unknown error trying to write, errno will carry over from
+ *   write() call
+ */
 static ssize_t
 ipc_write_message(int fd, const void *buf, size_t count)
 {
@@ -183,6 +205,11 @@ ipc_write_message(int fd, const void *buf, size_t count)
   return written;
 }
 
+/**
+ * Initialization for generic event message. This is used to allocate the yajl
+ * handle, set yajl options, and in the future any other initialization that
+ * should occur for event messages.
+ */
 static void
 ipc_event_init_message(yajl_gen *gen)
 {
@@ -190,6 +217,10 @@ ipc_event_init_message(yajl_gen *gen)
   yajl_gen_config(*gen, yajl_gen_beautify, 1);
 }
 
+/**
+ * Prepares buffers of IPC subscribers of specified event using buffer from yajl
+ * handle.
+ */
 static void
 ipc_event_prepare_send_message(yajl_gen gen, IPCEvent event)
 {
@@ -210,6 +241,11 @@ ipc_event_prepare_send_message(yajl_gen gen, IPCEvent event)
   yajl_gen_free(gen);
 }
 
+/**
+ * Initialization for generic reply message. This is used to allocate the yajl
+ * handle, set yajl options, and in the future any other initialization that
+ * should occur for reply messages.
+ */
 static void
 ipc_reply_init_message(yajl_gen *gen)
 {
@@ -217,6 +253,10 @@ ipc_reply_init_message(yajl_gen *gen)
   yajl_gen_config(*gen, yajl_gen_beautify, 1);
 }
 
+/**
+ * Prepares the IPC client's buffer with a message using the buffer of the yajl
+ * handle.
+ */
 static void
 ipc_reply_prepare_send_message(yajl_gen gen, IPCClient *c, IPCMessageType
     msg_type)
@@ -233,6 +273,12 @@ ipc_reply_prepare_send_message(yajl_gen gen, IPCClient *c, IPCMessageType
   yajl_gen_free(gen);
 }
 
+/**
+ * Find the IPCCommand with the specified name
+ *
+ * Returns 0 if a command with the specified name was found
+ * Returns -1 if a command with the specified name could not be found
+ */
 static int
 ipc_get_ipc_command(const char* name, IPCCommand *ipc_command)
 {
@@ -246,6 +292,23 @@ ipc_get_ipc_command(const char* name, IPCCommand *ipc_command)
   return -1;
 }
 
+/**
+ * Parse a IPC_TYPE_RUN_COMMAND message from a client. This function finds the
+ * IPC command with the name given by the client in the message, and parses
+ * the arguments while checking if the specified arguments match the arguments
+ * that the command accepts.
+ *
+ * Returns 0 if the message was successfully parsed and if the given arguments
+ *   matched the types and count of the specified command.
+ * Returns -1 otherwise
+ *
+ * TODO: Refactor this function, maybe split it up into smaller functions. The
+ *   main problem is that the parsing of the arguments rely on what is expected
+ *   from the command.
+ *
+ * TODO: Memory leak will occur if correct string argument precedes incorrect
+ *   argument
+ */
 static int
 ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
     IPCCommand *ipc_command)
@@ -294,7 +357,8 @@ ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
 
   *argc = args_val->u.array.len;
 
-  // TODO: Refactor this and make it less ugly. Maybe split into functions
+  // If no arguments are specified, make a dummy argument to pass to the
+  // function. This is just the way dwm's void(Arg*) functions are setup.
   if (*argc == 0 && ipc_command->argc == 1 &&
       *ipc_command->arg_types == ARG_TYPE_NONE) {
     *args = (Arg*)(malloc(sizeof(Arg)));
@@ -309,13 +373,19 @@ ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
 
       if (YAJL_IS_NUMBER(arg_val)) {
         if (YAJL_IS_INTEGER(arg_val)) {
+          // Any values below 0 must be a signed int. The command must expect
+          // a signed int
           if (YAJL_GET_INTEGER(arg_val) <= 0 && exp_type == ARG_TYPE_SINT) {
             (*args)[i].i = YAJL_GET_INTEGER(arg_val);
             fprintf(stderr, "i=%d\n", (*args)[i].i);
+            // Any values above 0 should be an unsigned int. The command can
+            // expect either an unsigned int or signed int
           } else if (YAJL_GET_INTEGER(arg_val) > 0 &&
                      (exp_type == ARG_TYPE_SINT || exp_type == ARG_TYPE_UINT)) {
             (*args)[i].ui = YAJL_GET_INTEGER(arg_val);
             fprintf(stderr, "ui=%d\n", (*args)[i].i);
+            // If the command expects a pointer argument, convert the value to
+            // a void pointer
           } else if (YAJL_GET_INTEGER(arg_val) && exp_type == ARG_TYPE_PTR) {
             (*args)[i].v = (void*)YAJL_GET_INTEGER(arg_val);
             fprintf(stderr, "v=%p\n", (*args)[i].v);
@@ -324,6 +394,7 @@ ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
             yajl_tree_free(parent);
             return -1;
           }
+          // If the number is not an integer, it must be a float
         } else if (exp_type == ARG_TYPE_FLOAT) {
           (*args)[i].f = (float)YAJL_GET_DOUBLE(arg_val);
           fprintf(stderr, "f=%f\n", (*args)[i].f);
@@ -332,6 +403,10 @@ ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
           yajl_tree_free(parent);
           return -1;
         }
+        // If argument is not a number, it must be a string. These pointers are
+        // freed based on the assumption that parsing matched the command's
+        // expected arguments, so an argument at a position in the array that
+        // should be of type string, is in fact an allocated string
       } else if (YAJL_IS_STRING(arg_val) && exp_type == ARG_TYPE_STR) {
         char* arg_s = YAJL_GET_STRING(arg_val);
         size_t arg_s_size = (strlen(arg_s) + 1) * sizeof(char);
@@ -356,6 +431,12 @@ ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
   return 0;
 }
 
+/**
+ * Convert event name to their IPCEvent equivalent enum value
+ *
+ * Returns 0 if a valid event name was given
+ * Returns -1 otherwise
+ */
 static int
 ipc_event_stoi(const char *subscription, IPCEvent *event)
 {
@@ -370,6 +451,13 @@ ipc_event_stoi(const char *subscription, IPCEvent *event)
   return 0;
 }
 
+/**
+ * Parse a IPC_TYPE_SUBSCRIBE message from a client. This function extracts the
+ * event name and the subscription action from the message.
+ *
+ * Returns 0 if message was successfully parsed
+ * Returns -1 otherwise
+ */
 static int
 ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe,
     IPCEvent *event)
@@ -426,6 +514,13 @@ ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe,
   return 0;
 }
 
+/**
+ * Parse an IPC_TYPE_GET_DWM_CLIENT message from a client. This function
+ * extracts the window id from the message.
+ *
+ * Returns 0 if message was successfully parsed
+ * Returns -1 otherwise
+ */
 static int
 ipc_parse_get_dwm_client(const char *msg, Window *win)
 {
@@ -458,6 +553,19 @@ ipc_parse_get_dwm_client(const char *msg, Window *win)
   return 0;
 }
 
+/**
+ * Called when an IPC_TYPE_RUN_COMMAND message is received from a client. This
+ * function parses, executes the given command, and prepares a reply message to
+ * the client indicating success/failure.
+ *
+ * NOTE: There is currently no check for argument validity beyond the number of
+ * arguments given and types of arguments. There is also no way to check if the
+ * function succeeded based on dwm's void(const Arg*) function types. Pointer
+ * arguments can cause crashes if they are not validated in the function itself.
+ *
+ * Returns 0 if message was successfully parsed
+ * Returns -1 on failure parsing message
+ */
 static int
 ipc_run_command(IPCClient *ipc_client, char *msg)
 {
@@ -477,6 +585,8 @@ ipc_run_command(IPCClient *ipc_client, char *msg)
     ipc_command.func.array_param(args, argc);
 
   fprintf(stderr, "Called function for command %s\n", ipc_command.command_name);
+
+  // Assumes parsing succeeded and correct argument types were given
   for (int i = 0; i < argc; i++) {
     if (ipc_command.arg_types[i] == ARG_TYPE_STR)
       free((void *)args[i].v);
@@ -487,6 +597,10 @@ ipc_run_command(IPCClient *ipc_client, char *msg)
   return 0;
 }
 
+/**
+ * Called when an IPC_TYPE_GET_MONITORS message is received from a client. It
+ * prepares a reply with the properties of all of the monitors in JSON.
+ */
 static void
 ipc_get_monitors(IPCClient *c, Monitor *mons)
 {
@@ -502,6 +616,10 @@ ipc_get_monitors(IPCClient *c, Monitor *mons)
   ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_MONITORS);
 }
 
+/**
+ * Called when an IPC_TYPE_GET_TAGS message is received from a client. It
+ * prepares a reply with info about all the tags in JSON.
+ */
 static void
 ipc_get_tags(IPCClient *c, const char *tags[], const int tags_len)
 {
@@ -513,6 +631,10 @@ ipc_get_tags(IPCClient *c, const char *tags[], const int tags_len)
   ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_TAGS);
 }
 
+/**
+ * Called when an IPC_TYPE_GET_LAYOUTS message is received from a client. It
+ * prepares a reply with a JSON array of available layouts
+ */
 static void
 ipc_get_layouts(IPCClient *c, const Layout layouts[], const int layouts_len)
 {
@@ -524,6 +646,15 @@ ipc_get_layouts(IPCClient *c, const Layout layouts[], const int layouts_len)
   ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_LAYOUTS);
 }
 
+/**
+ * Called when an IPC_TYPE_GET_DWM_CLIENT message is received from a client. It
+ * prepares a JSON reply with the properties of the client with the specified
+ * window XID.
+ *
+ * Returns 0 if the message was successfully parsed and if the client with the
+ *   specified window XID was found
+ * Returns -1 if the message could not be parsed
+ */
 static int
 ipc_get_dwm_client(IPCClient *ipc_client, const char *msg, const Monitor *mons)
 {
@@ -532,6 +663,7 @@ ipc_get_dwm_client(IPCClient *ipc_client, const char *msg, const Monitor *mons)
   if (ipc_parse_get_dwm_client(msg, &win) < 0)
     return -1;
 
+  // Find client with specified window XID
 	for (const Monitor *m = mons; m; m = m->next)
 		for (Client *c = m->clients; c; c = c->next)
       if (c->win == win) {
@@ -551,6 +683,14 @@ ipc_get_dwm_client(IPCClient *ipc_client, const char *msg, const Monitor *mons)
   return -1;
 }
 
+/**
+ * Called when an IPC_TYPE_SUBSCRIBE message is received from a client. It
+ * subscribes/unsubscribes the client from the specified event and replies with
+ * the result.
+ *
+ * Returns 0 if the message was successfully parsed.
+ * Returns -1 if the message could not be parsed
+ */
 static int
 ipc_subscribe(IPCClient *c, const char *msg)
 {
@@ -593,6 +733,7 @@ ipc_init(const char *socket_path, const int p_epoll_fd,
 
   epoll_fd = p_epoll_fd;
 
+  // Wake up to incoming connection requests
   sock_epoll_event.data.fd = socket_fd;
   sock_epoll_event.events = EPOLLIN;
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket_fd, &sock_epoll_event)) {
@@ -607,6 +748,7 @@ void
 ipc_cleanup()
 {
   IPCClient *c = ipc_clients;
+  // Free clients and their buffers
   while (c) {
     IPCClient *next = c->next;
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &c->event);
@@ -617,6 +759,7 @@ ipc_cleanup()
     c = next;
   }
 
+  // Stop waking up for socket events
   epoll_ctl(epoll_fd, EPOLL_CTL_DEL, sock_fd, &sock_epoll_event);
 
   // Uninitialize all static variables
@@ -627,6 +770,7 @@ ipc_cleanup()
   memset(&sock_epoll_event, 0, sizeof(struct epoll_event));
   memset(&sockaddr, 0, sizeof(struct sockaddr_un));
 
+  // Delete socket
   unlink(sockaddr.sun_path);
 
   shutdown(sock_fd, SHUT_RDWR);
@@ -671,9 +815,9 @@ ipc_accept_client()
   IPCClient *nc = ipc_client_new(fd);
   if (nc == NULL) return -1;
 
+  // Wake up to messages from this client
   nc->event.data.fd = fd;
   nc->event.events = EPOLLIN | EPOLLHUP;
-
   epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &nc->event);
 
   ipc_list_add_client(&ipc_clients, nc);
@@ -691,6 +835,7 @@ ipc_drop_client(IPCClient *c)
   if (res == 0) {
     struct epoll_event ev;
 
+    // Stop waking up to messages from this client
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &ev);
     ipc_list_remove_client(&ipc_clients, c);
 
@@ -713,7 +858,7 @@ ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
       (uint8_t **)msg);
 
   if (ret < 0) {
-    // Will happen if these errors occur while reading header
+    // This will happen if these errors occur while reading header
     if (ret == -1 &&
         (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
       return -2;
@@ -724,6 +869,7 @@ ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
     return -1;
   }
 
+  // Make sure receive message is null terminated to avoid parsing issues
   size_t len = *msg_size;
   nullterminate(msg, &len);
   *msg_size = len;
@@ -748,7 +894,9 @@ ipc_write_client(IPCClient *c)
   if (n == c->buffer_size) {
       c->buffer_size = 0;
       free(c->buffer);
+      // No dangling pointers!
       c->buffer = NULL;
+      // Stop waking up when client is ready to receive messages
       if (c->event.events & EPOLLOUT) {
         c->event.events -= EPOLLOUT;
         epoll_ctl(epoll_fd, EPOLL_CTL_MOD, c->fd, &c->event);
@@ -756,6 +904,7 @@ ipc_write_client(IPCClient *c)
       return n;
   }
 
+  // Shift unwritten buffer to beginning of buffer and reallocate
   c->buffer_size -= n;
   memmove(c->buffer, c->buffer + n, c->buffer_size);
   c->buffer = (char*)realloc(c->buffer, c->buffer_size);
@@ -781,12 +930,15 @@ ipc_prepare_send_message(IPCClient *c, const IPCMessageType msg_type,
   else
     c->buffer = (char*)realloc(c->buffer, c->buffer_size + packet_size);
 
+  // Copy header to end of client buffer
   memcpy(c->buffer + c->buffer_size, &header, header_size);
   c->buffer_size += header_size;
 
+  // Copy message to end of client buffer
   memcpy(c->buffer + c->buffer_size, msg, msg_size);
   c->buffer_size += msg_size;
 
+  // Wake up when client is ready to receive messages
   c->event.events |= EPOLLOUT;
   epoll_ctl(epoll_fd, EPOLL_CTL_MOD, c->fd, &c->event);
 }
@@ -798,6 +950,7 @@ ipc_prepare_reply_failure(IPCClient *c, IPCMessageType msg_type,
   va_list args;
   yajl_gen gen;
 
+  // Get output size
   size_t len = vsnprintf(NULL, 0, format, args);
   char buffer[len + 1];
 
@@ -943,6 +1096,7 @@ ipc_handle_socket_epoll_event(struct epoll_event *ev)
   if (!(ev->events & EPOLLIN))
     return -1;
 
+  // EPOLLIN means incoming client connection request
   fputs("Received EPOLLIN event on socket\n", stderr);
   int new_fd = ipc_accept_client();
 
