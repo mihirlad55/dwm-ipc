@@ -1502,7 +1502,7 @@ sendipcevents(void)
       m->oldtagstate = new_state;
     }
 
-    if (m->lastsel && m->sel && m->lastsel != m->sel) {
+    if (m->lastsel != m->sel) {
       ipc_selected_client_change_event(m->lastsel, m->sel, m->num);
       m->lastsel = m->sel;
     }

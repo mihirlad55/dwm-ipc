@@ -196,9 +196,17 @@ dump_client_change_event(yajl_gen gen, Client *old_client, Client *new_client,
 
   ystr("moniter_number"); yajl_gen_integer(gen, mon_num);
 
-  ystr("old"); dump_client(gen, old_client);
+  ystr("old");
+  if (old_client != NULL)
+    yajl_gen_integer(gen, old_client->win);
+  else
+    yajl_gen_null(gen);
 
-  ystr("new"); dump_client(gen, new_client);
+  ystr("new");
+  if (new_client != NULL)
+    yajl_gen_integer(gen, new_client->win);
+  else
+    yajl_gen_null(gen);
 
   yajl_gen_map_close(gen);
 
