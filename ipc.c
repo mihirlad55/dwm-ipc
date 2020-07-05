@@ -177,7 +177,7 @@ ipc_write_message(int fd, const void *buf, size_t count)
     }
 
     written += n;
-    fprintf(stderr, "Wrote %d/%d to client at fd %d\n", (int)written, (int)count, fd);
+    fprintf(stderr, "Wrote %zu/%zu to client at fd %d\n", written, count, fd);
   }
 
   return written;
@@ -732,7 +732,7 @@ ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
   return 0;
 }
 
-int
+ssize_t
 ipc_write_client(IPCClient *c)
 {
   const ssize_t n = ipc_write_message(c->fd, c->buffer, c->buffer_size);
@@ -760,7 +760,7 @@ ipc_write_client(IPCClient *c)
 
 void
 ipc_prepare_send_message(IPCClient *c, const IPCMessageType msg_type,
-                         const uint32_t msg_size, const char *msg)
+    const uint32_t msg_size, const char *msg)
 {
   dwm_ipc_header_t header = {
     .magic = IPC_MAGIC_ARR,

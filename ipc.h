@@ -81,7 +81,7 @@ int ipc_drop_client(IPCClient *c);
 int ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
                     char **msg);
 
-int ipc_write_client(IPCClient *c);
+ssize_t ipc_write_client(IPCClient *c);
 
 void ipc_prepare_send_message(IPCClient *c, const IPCMessageType msg_type,
                               const uint32_t msg_size, const char *msg);
