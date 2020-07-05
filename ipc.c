@@ -718,7 +718,7 @@ ipc_event_stoi(const char *subscription)
 {
   if (strcmp(subscription, "tag_change_event") == 0)
     return IPC_EVENT_TAG_CHANGE;
-  else if (strcmp(subscription, "window_change_event") == 0)
+  else if (strcmp(subscription, "selected_client_change_event") == 0)
     return IPC_EVENT_SELECTED_CLIENT_CHANGE;
   else if (strcmp(subscription, "layout_change_event") == 0)
     return IPC_EVENT_LAYOUT_CHANGE;
