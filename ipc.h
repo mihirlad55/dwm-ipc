@@ -68,7 +68,7 @@ typedef struct IPCCommand {
 int ipc_init(const char *socket_path, const int p_epoll_fd,
              IPCCommand commands[], const int commands_len);
 
-void ipc_cleanup(int sock_fd);
+void ipc_cleanup();
 
 IPCClient *ipc_get_client(int fd);
 

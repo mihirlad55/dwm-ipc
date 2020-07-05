@@ -19,7 +19,7 @@ static IPCClientList ipc_clients = NULL;
 static int epoll_fd = -1;
 static int sock_fd = -1;
 static IPCCommand *ipc_commands;
-static int ipc_commands_len;
+static unsigned int ipc_commands_len;
 // Max size is 1 MB
 const uint32_t MAX_MESSAGE_SIZE = 1000000;
 
@@ -369,7 +369,8 @@ ipc_event_stoi(const char *subscription, IPCEvent *event)
 }
 
 static int
-ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe, IPCEvent *event)
+ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe,
+    IPCEvent *event)
 {
   char error_buffer[100];
   yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
@@ -603,7 +604,7 @@ ipc_init(const char *socket_path, const int p_epoll_fd,
 }
 
 void
-ipc_cleanup(int sock_fd)
+ipc_cleanup()
 {
   IPCClient *c = ipc_clients;
   while (c) {
@@ -615,6 +616,15 @@ ipc_cleanup(int sock_fd)
     free(c);
     c = next;
   }
+
+  struct epoll_event ev;
+  memset(&ev, 0, sizeof(struct epoll_event));
+  epoll_ctl(epoll_fd, EPOLL_CTL_DEL, sock_fd, &ev);
+
+  epoll_fd = -1;
+  sock_fd = -1;
+  ipc_commands = NULL;
+  ipc_commands_len = 0;
 
   shutdown(sock_fd, SHUT_RDWR);
 }

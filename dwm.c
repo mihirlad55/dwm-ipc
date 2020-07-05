@@ -451,10 +451,11 @@ cleanup(void)
 	XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
 	XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
 
+  ipc_cleanup();
+
   if (close(epoll_fd)) {
       fprintf(stderr, "Failed to close epoll file descriptor\n");
   }
-  ipc_cleanup(sock_fd);
 }
 
 void
