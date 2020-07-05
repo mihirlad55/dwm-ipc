@@ -37,14 +37,13 @@ ipc_list_add_client(IPCClientList *list, IPCClient *nc)
 void
 ipc_list_remove_client(IPCClientList *list, IPCClient *c)
 {
-  for (c = *list; c && c->next; c = c->next)
-    ;
-
   IPCClient *cprev = c->prev;
   IPCClient *cnext = c->next;
 
-  if (cprev != NULL) cprev->next = c->next;
-  if (cnext != NULL) cnext->prev = c->prev;
+  if (cprev != NULL)
+    cprev->next = c->next;
+  if (cnext != NULL)
+    cnext->prev = c->prev;
   if (c == *list)
     *list = c->next;
 }
