@@ -358,7 +358,7 @@ ipc_parse_run_command(char *msg, char **name, unsigned int *argc,
 }
 
 static int
-ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe)
+ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe, IPCEvent *event)
 {
   char error_buffer[100];
   yajl_val parent = yajl_tree_parse((char*)msg, error_buffer, 100);
@@ -382,11 +382,10 @@ ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe)
     return -1;
   }
 
-  const char* event = YAJL_GET_STRING(event_val);
-  fprintf(stderr, "Received event: %s\n", event);
+  const char* event_str = YAJL_GET_STRING(event_val);
+  fprintf(stderr, "Received event: %s\n", event_str);
 
-  IPCEvent event_num;
-  if ((event_num = ipc_event_stoi(event)) < 0)
+  if (ipc_event_stoi(event_str, event) < 0)
     return -1;
 
   const char *action_path[] = {"action", 0};
@@ -410,7 +409,7 @@ ipc_parse_subscribe(const char *msg, IPCSubscriptionAction *subscribe)
 
   yajl_tree_free(parent);
 
-  return event_num;
+  return 0;
 }
 
 static int
@@ -714,33 +713,35 @@ int ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
 }
 
 int
-ipc_event_stoi(const char *subscription)
+ipc_event_stoi(const char *subscription, IPCEvent *event)
 {
   if (strcmp(subscription, "tag_change_event") == 0)
-    return IPC_EVENT_TAG_CHANGE;
+    *event = IPC_EVENT_TAG_CHANGE;
   else if (strcmp(subscription, "selected_client_change_event") == 0)
-    return IPC_EVENT_SELECTED_CLIENT_CHANGE;
+    *event = IPC_EVENT_SELECTED_CLIENT_CHANGE;
   else if (strcmp(subscription, "layout_change_event") == 0)
-    return IPC_EVENT_LAYOUT_CHANGE;
+    *event = IPC_EVENT_LAYOUT_CHANGE;
   else
     return -1;
+  return 0;
 }
 
 int
 ipc_subscribe(IPCClient *c, const char *msg)
 {
   IPCSubscriptionAction action = IPC_ACTION_SUBSCRIBE;
+  IPCEvent event = 0;
 
-  IPCEvent event = ipc_parse_subscribe(msg, &action);
-
-  if (event < 0)
+  if (ipc_parse_subscribe(msg, &action, &event)) {
+    ipc_prepare_reply_failure(c, IPC_TYPE_SUBSCRIBE, "Event does not exist");
     return -1;
+  }
 
   if (action == IPC_ACTION_SUBSCRIBE) {
-    fprintf(stderr, "Subscribing client on fd %d to %d", c->fd, event);
+    fprintf(stderr, "Subscribing client on fd %d to %d\n", c->fd, event);
     c->subscriptions |= event;
   } else if (action == IPC_ACTION_UNSUBSCRIBE) {
-    fprintf(stderr, "Unsubscribing client on fd %d to %d", c->fd, event);
+    fprintf(stderr, "Unsubscribing client on fd %d to %d\n", c->fd, event);
     c->subscriptions ^= event;
   } else {
     ipc_prepare_reply_failure(c, IPC_TYPE_SUBSCRIBE,
@@ -748,7 +749,6 @@ ipc_subscribe(IPCClient *c, const char *msg)
     return -1;
   }
 
-  fprintf(stderr, "Failed to subscribe client on fd %d to %d", c->fd, event);
   ipc_prepare_reply_success(c, IPC_TYPE_SUBSCRIBE);
   return 0;
 }
