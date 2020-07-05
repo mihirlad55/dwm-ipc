@@ -65,12 +65,13 @@ typedef struct IPCCommand {
   ArgType *arg_types;
 } IPCCommand;
 
-int ipc_init(const char *socket_path, const int epoll_fd, IPCCommand commands[],
-             const int commands_len);
+int ipc_init(const char *socket_path, const int p_epoll_fd,
+    IPCCommand commands[], const int commands_len);
 
 IPCClient *ipc_get_client(int fd);
 
 int ipc_accept_client(struct epoll_event *event);
+
 int ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
                     char **msg);
 
