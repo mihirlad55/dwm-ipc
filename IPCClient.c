@@ -1,3 +1,6 @@
+#include <sys/epoll.h>
+#include <string.h>
+
 #include "IPCClient.h"
 
 IPCClient*
@@ -6,6 +9,9 @@ ipc_client_new(int fd)
   IPCClient* c = (IPCClient*)malloc(sizeof(IPCClient));
 
   if (c == NULL) return NULL;
+
+  // Initialize struct
+  memset(&c->event, 0, sizeof(struct epoll_event));
 
   c->buffer_size = 0;
   c->buffer = NULL;

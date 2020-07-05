@@ -450,6 +450,9 @@ ipc_init(const char *socket_path, const int p_epoll_fd,
 {
   struct epoll_event event;
 
+  // Initialize struct to 0
+  memset(&event, 0, sizeof(event));
+
   int socket_fd = ipc_create_socket(socket_path);
   if (socket_fd < 0) return -1;;
 
@@ -482,7 +485,7 @@ ipc_accept_client(int sock_fd, struct epoll_event *event)
 
   if (event->events & EPOLLIN) {
     struct sockaddr_un client_addr;
-    socklen_t len;
+    socklen_t len = 0;
 
     // For portability clear the addr structure, since some implementations
     // have nonstandard fields in the structure

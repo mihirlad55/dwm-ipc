@@ -1711,6 +1711,9 @@ setupepoll(void)
   dpy_fd = ConnectionNumber(dpy);
   struct epoll_event dpy_event;
 
+  // Initialize struct to 0
+  memset(&dpy_event, 0, sizeof(dpy_event));
+
   fprintf(stderr, "Display socket is fd %d\n", dpy_fd);
 
   if (epoll_fd == -1) {
