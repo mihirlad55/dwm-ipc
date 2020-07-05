@@ -967,7 +967,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
 
   if (ev->events & EPOLLHUP) {
     fprintf(stderr, "EPOLLHUP received from client at fd %d\n", fd);
-    ipc_drop_client(fd);
+    ipc_drop_client(c);
   } else if (ev->events & EPOLLOUT) {
     fprintf(stderr, "Sending message to client at fd %d...\n", fd);
     if (c->buffer_size) ipc_push_pending(c);
@@ -977,7 +977,7 @@ int handleipcevent(int fd, struct epoll_event *ev)
     char *msg;
 
     fprintf(stderr, "Received message from fd %d\n", fd);
-    if (ipc_read_client(fd, &msg_type, &msg_size, &msg) < 0)
+    if (ipc_read_client(c, &msg_type, &msg_size, &msg) < 0)
       return -1;
 
     if (msg_type == IPC_TYPE_GET_MONITORS)

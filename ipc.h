@@ -72,10 +72,10 @@ IPCClient *ipc_get_client(int fd);
 
 int ipc_accept_client(int sock_fd, struct epoll_event *event);
 
-int ipc_read_client(int fd, IPCMessageType *msg_type, uint32_t *msg_size,
+int ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
                     char **msg);
 
-int ipc_drop_client(int fd);
+int ipc_drop_client(IPCClient *c);
 
 int ipc_command_stoi(const char *command);
 

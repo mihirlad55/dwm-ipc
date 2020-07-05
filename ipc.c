@@ -514,9 +514,9 @@ ipc_accept_client(int sock_fd, struct epoll_event *event)
 }
 
 int
-ipc_read_client(int fd, IPCMessageType *msg_type, uint32_t *msg_size, char **msg)
+ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size, char **msg)
 {
-  int ret = ipc_recv_message(fd, (uint8_t *)msg_type, msg_size,
+  int ret = ipc_recv_message(c->fd, (uint8_t *)msg_type, msg_size,
       (uint8_t **)msg);
 
   if (ret < 0) {
@@ -525,8 +525,8 @@ ipc_read_client(int fd, IPCMessageType *msg_type, uint32_t *msg_size, char **msg
         (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
       return -2;
 
-    fprintf(stderr, "Error reading message: dropping client at fd %d\n", fd);
-    ipc_drop_client(fd);
+    fprintf(stderr, "Error reading message: dropping client at fd %d\n", c->fd);
+    ipc_drop_client(c);
 
     return -1;
   }
@@ -535,7 +535,7 @@ ipc_read_client(int fd, IPCMessageType *msg_type, uint32_t *msg_size, char **msg
   nullterminate(msg, &len);
   *msg_size = len;
 
-  fprintf(stderr, "[fd %d] ", fd);
+  fprintf(stderr, "[fd %d] ", c->fd);
   fprintf(stderr, "Received message: '%.*s' ", *msg_size, *msg);
   fprintf(stderr, "Message type: %" PRIu8 " ", *msg_type);
   fprintf(stderr, "Message size: %" PRIu32 "\n", *msg_size);
@@ -544,21 +544,20 @@ ipc_read_client(int fd, IPCMessageType *msg_type, uint32_t *msg_size, char **msg
 }
 
 int
-ipc_drop_client(int fd)
+ipc_drop_client(IPCClient *c)
 {
-  int res = close(fd);
+  int res = close(c->fd);
 
   if (res == 0) {
     struct epoll_event ev;
-    IPCClient *c = ipc_list_get_client(ipc_clients, fd);
 
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &ev);
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &ev);
     ipc_list_remove_client(&ipc_clients, c);
     free(c);
 
-    fprintf(stderr, "Successfully removed client on fd %d\n", fd);
+    fprintf(stderr, "Successfully removed client on fd %d\n", c->fd);
   } else if (res < 0 && res != EINTR) {
-    fprintf(stderr, "Failed to close fd %d\n", fd);
+    fprintf(stderr, "Failed to close fd %d\n", c->fd);
   }
 
   return res;
