@@ -759,15 +759,18 @@ ipc_prepare_reply_failure(IPCClient *c, IPCMessageType msg_type,
 {
   va_list args;
   yajl_gen gen;
-  char buffer[300];
+
+  size_t len = vsnprintf(NULL, 0, format, args);
+  char buffer[len + 1];
 
   ipc_reply_init_message(&gen);
 
   va_start(args, format);
-  vsnprintf(buffer, 300, format, args);
+  vsnprintf(buffer, len + 1, format, args);
   dump_error_message(gen, buffer);
 
   ipc_reply_prepare_send_message(gen, c, msg_type);
+  fprintf(stderr, "[fd %d] Error: %s\n", c->fd, buffer);
 
   va_end(args);
 }
