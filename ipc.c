@@ -586,7 +586,7 @@ ipc_init(const char *socket_path, const int p_epoll_fd,
   memset(&sock_epoll_event, 0, sizeof(sock_epoll_event));
 
   int socket_fd = ipc_create_socket(socket_path);
-  if (socket_fd < 0) return -1;;
+  if (socket_fd < 0) return -1;
 
   ipc_commands = commands;
   ipc_commands_len = commands_len;
@@ -693,6 +693,8 @@ ipc_drop_client(IPCClient *c)
 
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &ev);
     ipc_list_remove_client(&ipc_clients, c);
+
+    free(c->buffer);
     free(c);
 
     fprintf(stderr, "Successfully removed client on fd %d\n", c->fd);
@@ -746,6 +748,7 @@ ipc_write_client(IPCClient *c)
   if (n == c->buffer_size) {
       c->buffer_size = 0;
       free(c->buffer);
+      c->buffer = NULL;
       if (c->event.events & EPOLLOUT) {
         c->event.events -= EPOLLOUT;
         epoll_ctl(epoll_fd, EPOLL_CTL_MOD, c->fd, &c->event);
@@ -773,7 +776,7 @@ ipc_prepare_send_message(IPCClient *c, const IPCMessageType msg_type,
   uint32_t header_size = sizeof(dwm_ipc_header_t);
   uint32_t packet_size = header_size + msg_size;
 
-  if (c->buffer_size == 0)
+  if (c->buffer == NULL)
     c->buffer = (char*)malloc(c->buffer_size + packet_size);
   else
     c->buffer = (char*)realloc(c->buffer, c->buffer_size + packet_size);
@@ -829,8 +832,8 @@ ipc_tag_change_event(int mon_num, TagState old_state, TagState new_state)
 }
 
 void
-ipc_selected_client_change_event(Client *old_client, Client *new_client,
-    int mon_num)
+ipc_selected_client_change_event(int mon_num, Client *old_client,
+    Client *new_client)
 {
   yajl_gen gen;
   ipc_event_init_message(&gen);
@@ -870,7 +873,7 @@ ipc_send_events(Monitor *mons)
     }
 
     if (m->lastsel != m->sel) {
-      ipc_selected_client_change_event(m->lastsel, m->sel, m->num);
+      ipc_selected_client_change_event(m->num, m->lastsel, m->sel);
       m->lastsel = m->sel;
     }
 

@@ -91,7 +91,7 @@ void ipc_prepare_reply_failure(IPCClient *c, IPCMessageType msg_type,
 
 void ipc_prepare_reply_success(IPCClient *c, IPCMessageType msg_type);
 
-void ipc_tag_change_event(int mon_num, TagState old_state, TagState new_state);
+void ipc_tag_change_event(const int mon_num, TagState old_state, TagState new_state);
 
 void ipc_selected_client_change_event(Client *old_client, Client *new_client,
                                       int mon_num);
