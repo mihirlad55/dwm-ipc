@@ -244,19 +244,6 @@ ipc_get_ipc_command(const char* name, IPCCommand *ipc_command)
 }
 
 static int
-ipc_null_terminate(char **str, size_t *len)
-{
-  if ((*str)[*len - 1] == '\0')
-    return 0;
-
-  (*len)++;
-  *str = (char*)realloc(*str, *len * sizeof(char));
-  (*str)[*len - 1] = '\0';
-
-  return 0;
-}
-
-static int
 ipc_parse_run_command(char *msg, char **name, unsigned int *argc,
     Arg *args[])
 {
@@ -543,7 +530,7 @@ ipc_read_client(int fd, IPCMessageType *msg_type, uint32_t *msg_size, char **msg
   }
 
   size_t len = *msg_size;
-  ipc_null_terminate(msg, &len);
+  nullterminate(msg, &len);
   *msg_size = len;
 
   fprintf(stderr, "[fd %d] ", fd);

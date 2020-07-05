@@ -158,3 +158,17 @@ mkdirp(const char *path)
 
   return 0;
 }
+
+int
+nullterminate(char **str, size_t *len)
+{
+  if ((*str)[*len - 1] == '\0')
+    return 0;
+
+  (*len)++;
+  *str = (char*)realloc(*str, *len * sizeof(char));
+  (*str)[*len - 1] = '\0';
+
+  return 0;
+}
+
