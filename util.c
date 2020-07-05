@@ -56,15 +56,12 @@ normalizepath(const char *path, char **normal)
       walk++;
 
     // If not last character in path
-    if (walk != path + len) {
-      strcpy(*normal + newlen, "/");
-      newlen++;
-    } else {
-      // Set null char
-      (*normal)[newlen] = '\0';
-      newlen++;
-    }
+    if (walk != path + len)
+      (*normal)[newlen++] = '/';
   }
+
+  (*normal)[newlen++] = '\0';
+
   // Copy remaining path
   strcat(*normal, walk);
   newlen += strlen(walk);
