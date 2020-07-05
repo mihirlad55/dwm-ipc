@@ -489,37 +489,35 @@ ipc_get_client(int fd)
 }
 
 int
-ipc_accept_client(struct epoll_event *event)
+ipc_accept_client()
 {
   fputs("In accept client function\n", stderr);
   int fd = -1;
 
-  if (event->events & EPOLLIN) {
-    struct sockaddr_un client_addr;
-    socklen_t len = 0;
+  struct sockaddr_un client_addr;
+  socklen_t len = 0;
 
-    // For portability clear the addr structure, since some implementations
-    // have nonstandard fields in the structure
-    memset(&client_addr, 0, sizeof(struct sockaddr_un));
+  // For portability clear the addr structure, since some implementations
+  // have nonstandard fields in the structure
+  memset(&client_addr, 0, sizeof(struct sockaddr_un));
 
-    fd = accept(sock_fd, (struct sockaddr *)&client_addr, &len);
-    if (fd < 0 && errno != EINTR) {
-      fputs("Failed to accept IPC connection from client", stderr);
-      return -1;
-    }
-
-    IPCClient *nc = ipc_client_new(fd);
-    if (nc == NULL) return -1;
-
-    nc->event.data.fd = fd;
-    nc->event.events = EPOLLIN | EPOLLHUP;
-
-    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &nc->event);
-
-    ipc_list_add_client(&ipc_clients, nc);
-
-    fprintf(stderr, "%s%d\n", "New client at fd: ", fd);
+  fd = accept(sock_fd, (struct sockaddr *)&client_addr, &len);
+  if (fd < 0 && errno != EINTR) {
+    fputs("Failed to accept IPC connection from client", stderr);
+    return -1;
   }
+
+  IPCClient *nc = ipc_client_new(fd);
+  if (nc == NULL) return -1;
+
+  nc->event.data.fd = fd;
+  nc->event.events = EPOLLIN | EPOLLHUP;
+
+  epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &nc->event);
+
+  ipc_list_add_client(&ipc_clients, nc);
+
+  fprintf(stderr, "%s%d\n", "New client at fd: ", fd);
 
   return fd;
 }
@@ -694,7 +692,8 @@ ipc_get_layouts(IPCClient *c, const Layout layouts[], const int layouts_len)
   ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_LAYOUTS);
 }
 
-int ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
+int
+ipc_get_dwm_client(IPCClient *ipc_client, const char *msg,
     const Monitor *mons)
 {
   Window win;
@@ -806,6 +805,104 @@ ipc_layout_change_event(const int mon_num, const char *old_symbol,
   ipc_event_init_message(&gen);
   dump_layout_change_event(gen, mon_num, old_symbol, new_symbol);
   ipc_event_prepare_send_message(gen, IPC_EVENT_LAYOUT_CHANGE);
+}
+
+void
+ipc_send_events(Monitor *mons)
+{
+  for (Monitor *m = mons; m; m = m->next) {
+    unsigned int urg = 0, occ = 0, tagset = 0;
+
+    for (Client *c = mons->clients; c; c = c->next) {
+      occ |= c->tags;
+
+      if (c->isurgent)
+        urg |= c->tags;
+    }
+    tagset = m->tagset[m->seltags];
+
+    TagState new_state = { .selected = tagset, .occupied = occ, .urgent = urg };
+
+    if (memcmp(&m->oldtagstate, &new_state, sizeof(TagState)) != 0) {
+      ipc_tag_change_event(m->num, m->oldtagstate, new_state);
+      m->oldtagstate = new_state;
+    }
+
+    if (m->lastsel != m->sel) {
+      ipc_selected_client_change_event(m->lastsel, m->sel, m->num);
+      m->lastsel = m->sel;
+    }
+
+    if (strcmp(m->ltsymbol, m->lastltsymbol) != 0) {
+      ipc_layout_change_event(m->num, m->lastltsymbol, m->ltsymbol);
+      strcpy(m->lastltsymbol, m->ltsymbol);
+    }
+  }
+}
+
+int
+ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
+    const char *tags[], const int tags_len, const Layout *layouts,
+    const int layouts_len)
+{
+  int fd = ev->data.fd;
+  IPCClient *c = ipc_get_client(fd);
+
+  if (ev->events & EPOLLHUP) {
+    fprintf(stderr, "EPOLLHUP received from client at fd %d\n", fd);
+    ipc_drop_client(c);
+  } else if (ev->events & EPOLLOUT) {
+    fprintf(stderr, "Sending message to client at fd %d...\n", fd);
+    if (c->buffer_size) ipc_push_pending(c);
+  } else if (ev->events & EPOLLIN) {
+    IPCMessageType msg_type;
+    uint32_t msg_size;
+    char *msg;
+
+    fprintf(stderr, "Received message from fd %d\n", fd);
+    if (ipc_read_client(c, &msg_type, &msg_size, &msg) < 0)
+      return -1;
+
+    if (msg_type == IPC_TYPE_GET_MONITORS)
+      ipc_get_monitors(c, mons);
+    else if (msg_type == IPC_TYPE_GET_TAGS)
+      ipc_get_tags(c, tags, tags_len);
+    else if (msg_type == IPC_TYPE_GET_LAYOUTS)
+      ipc_get_layouts(c, layouts, layouts_len);
+    else if (msg_type == IPC_TYPE_RUN_COMMAND) {
+      if (ipc_run_command(c, msg) < 0)
+        return -1;
+      ipc_send_events(mons);
+    } else if (msg_type == IPC_TYPE_GET_DWM_CLIENT) {
+      if (ipc_get_dwm_client(c, msg, mons) < 0)
+        return -1;
+    } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
+      if (ipc_subscribe(c, msg) < 0)
+        return -1;
+    } else {
+      fprintf(stderr, "Invalid message type received from fd %d", fd);
+      ipc_prepare_reply_failure(c, msg_type, "Invalid message type: %d",
+          msg_type);
+    }
+    free(msg);
+  } else {
+    fprintf(stderr, "Epoll event returned %d from fd %d\n", ev->events, fd);
+    return -1;
+  }
+
+  return 0;
+}
+
+int
+ipc_handle_socket_epoll_event(struct epoll_event *ev)
+{
+  if (!(ev->events & EPOLLIN))
+    return -1;
+
+  fputs("Received EPOLLIN event on socket\n", stderr);
+  int new_fd = ipc_accept_client();
+
+  return new_fd;
 }
 
 int

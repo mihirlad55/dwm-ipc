@@ -129,8 +129,6 @@ static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
 static void grabkeys(void);
 static int handlexevent(struct epoll_event *ev);
-static int handlesockevent(struct epoll_event *ev);
-static int handleipcevent(int fd, struct epoll_event *ev);
 static void incnmaster(const Arg *arg);
 static void keypress(XEvent *e);
 static void killclient(const Arg *arg);
@@ -152,7 +150,6 @@ static void restack(Monitor *m);
 static void run(void);
 static void scan(void);
 static int sendevent(Client *c, Atom proto);
-static void sendipcevents(void);
 static void sendmon(Client *c, Monitor *m);
 static void setclientstate(Client *c, long state);
 static void setfocus(Client *c);
@@ -939,72 +936,10 @@ handlexevent(struct epoll_event *ev)
       XNextEvent(dpy, &ev);
       if (handler[ev.type]) {
         handler[ev.type](&ev); /* call handler */
-        sendipcevents();
+        ipc_send_events(mons);
       }
     }
   } else if (ev-> events & EPOLLHUP) {
-    return -1;
-  }
-
-  return 0;
-}
-
-int
-handlesockevent(struct epoll_event *ev)
-{
-  if (!(ev->events & EPOLLIN))
-    return -1;
-
-  fputs("Received EPOLLIN event on socket\n", stderr);
-  int new_fd = ipc_accept_client(ev);
-
-  return new_fd;
-}
-
-int handleipcevent(int fd, struct epoll_event *ev)
-{
-  IPCClient *c = ipc_get_client(fd);
-
-  if (ev->events & EPOLLHUP) {
-    fprintf(stderr, "EPOLLHUP received from client at fd %d\n", fd);
-    ipc_drop_client(c);
-  } else if (ev->events & EPOLLOUT) {
-    fprintf(stderr, "Sending message to client at fd %d...\n", fd);
-    if (c->buffer_size) ipc_push_pending(c);
-  } else if (ev->events & EPOLLIN) {
-    IPCMessageType msg_type;
-    uint32_t msg_size;
-    char *msg;
-
-    fprintf(stderr, "Received message from fd %d\n", fd);
-    if (ipc_read_client(c, &msg_type, &msg_size, &msg) < 0)
-      return -1;
-
-    if (msg_type == IPC_TYPE_GET_MONITORS)
-      ipc_get_monitors(c, mons);
-    else if (msg_type == IPC_TYPE_GET_TAGS)
-      ipc_get_tags(c, tags, LENGTH(tags));
-    else if (msg_type == IPC_TYPE_GET_LAYOUTS)
-      ipc_get_layouts(c, layouts, LENGTH(layouts));
-    else if (msg_type == IPC_TYPE_RUN_COMMAND) {
-      if (ipc_run_command(c, msg) < 0)
-        return -1;
-      sendipcevents();
-    } else if (msg_type == IPC_TYPE_GET_DWM_CLIENT) {
-      if (ipc_get_dwm_client(c, msg, mons) < 0)
-        return -1;
-    } else if (msg_type == IPC_TYPE_SUBSCRIBE) {
-      if (ipc_subscribe(c, msg) < 0)
-        return -1;
-    } else {
-      fprintf(stderr, "Invalid message type received from fd %d", fd);
-      ipc_prepare_reply_failure(c, msg_type, "Invalid message type: %d",
-          msg_type);
-    }
-
-    free(msg);
-  } else {
-    fprintf(stderr, "Epoll event returned %d from fd %d\n", ev->events, fd);
     return -1;
   }
 
@@ -1439,9 +1374,10 @@ run(void)
         if (handlexevent(events + i) == -1)
           return;
       } else if (event_fd == sock_fd) {
-        handlesockevent(events + i);
+        ipc_handle_socket_epoll_event(events + i);
       } else if (ipc_is_client_registered(event_fd)){
-        if (handleipcevent(event_fd, events + i) < 0) {
+        if (ipc_handle_client_epoll_event(events + i, mons, tags, LENGTH(tags),
+              layouts, LENGTH(layouts)) < 0) {
           fprintf(stderr, "Error handling IPC event on fd %d\n", event_fd);
         }
       } else {
@@ -1479,39 +1415,6 @@ scan(void)
 		if (wins)
 			XFree(wins);
 	}
-}
-
-void
-sendipcevents(void)
-{
-  for (Monitor *m = mons; m; m = m->next) {
-    unsigned int urg = 0, occ = 0, tagset = 0;
-
-    for (Client *c = mons->clients; c; c = c->next) {
-      occ |= c->tags;
-
-      if (c->isurgent)
-        urg |= c->tags;
-    }
-    tagset = m->tagset[m->seltags];
-
-    TagState new_state = { .selected = tagset, .occupied = occ, .urgent = urg };
-
-    if (memcmp(&m->oldtagstate, &new_state, sizeof(TagState)) != 0) {
-      ipc_tag_change_event(m->num, m->oldtagstate, new_state);
-      m->oldtagstate = new_state;
-    }
-
-    if (m->lastsel != m->sel) {
-      ipc_selected_client_change_event(m->lastsel, m->sel, m->num);
-      m->lastsel = m->sel;
-    }
-
-    if (strcmp(m->ltsymbol, m->lastltsymbol) != 0) {
-      ipc_layout_change_event(m->num, m->lastltsymbol, m->ltsymbol);
-      strcpy(m->lastltsymbol, m->ltsymbol);
-    }
-  }
 }
 
 void

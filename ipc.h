@@ -70,7 +70,7 @@ int ipc_init(const char *socket_path, const int p_epoll_fd,
 
 IPCClient *ipc_get_client(int fd);
 
-int ipc_accept_client(struct epoll_event *event);
+int ipc_accept_client();
 
 int ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
                     char **msg);
@@ -112,5 +112,13 @@ void ipc_selected_client_change_event(Client *old_client, Client *new_client,
 
 void ipc_layout_change_event(const int mon_num, const char *old_symbol,
                              const char *new_symbol);
+
+void ipc_send_events(Monitor *mons);
+
+int ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
+    const char *tags[], const int tags_len, const Layout *layouts,
+    const int layouts_len);
+
+int ipc_handle_socket_epoll_event(struct epoll_event *ev);
 
 #endif /* IPC_H_ */
