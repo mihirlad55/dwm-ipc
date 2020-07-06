@@ -57,15 +57,15 @@ jobs:
       run: echo "$COMMIT_MESSAGE" | git commit -F -
       env:
         COMMIT_MESSAGE: |
-          "Add IPC support through a unix socket
+          Add IPC support through a unix socket
 
           This patch currently supports the following requests:
-          - Run custom commands with arguments (similar to key bind functions)
-          - Get monitor properties
-          - Get all available layouts
-          - Get available tags
-          - Get client properties
-          - Subscribe to tag change, selected client change, and layout change
+          * Run custom commands with arguments (similar to key bind functions)
+          * Get monitor properties
+          * Get all available layouts
+          * Get available tags
+          * Get client properties
+          * Subscribe to tag change, selected client change, and layout change
             events
 
           This patch includes a dwm-msg cli program that supports all of the
@@ -82,7 +82,7 @@ jobs:
 
           For more info on the IPC implementation and how to send/receive
           messages, documentation can be found at
-          https://github.com/mihirlad55/dwm-ipc"
+          https://github.com/mihirlad55/dwm-ipc
 
     - name: Install dependencies
       run: sudo apt-get install libx11-dev libyajl-dev libxinerama-dev
