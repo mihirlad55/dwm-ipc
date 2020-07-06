@@ -57,11 +57,18 @@ typedef union ArgFunction {
 } ArgFunction;
 
 typedef struct IPCCommand {
-  char *command_name;
+  char *name;
   ArgFunction func;
   unsigned int argc;
   ArgType *arg_types;
 } IPCCommand;
+
+typedef struct IPCParsedCommand {
+  char *name;
+  Arg *args;
+  ArgType *arg_types;
+  unsigned int argc;
+} IPCParsedCommand;
 
 /**
  * Initialize the IPC socket and the IPC module

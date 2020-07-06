@@ -4,8 +4,8 @@
 #include <X11/Xlib.h>
 
 typedef union {
-  int i;
-  unsigned int ui;
+  long i;
+  unsigned long ui;
   float f;
   const void *v;
 } Arg;

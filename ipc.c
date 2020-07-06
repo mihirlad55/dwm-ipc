@@ -283,7 +283,7 @@ static int
 ipc_get_ipc_command(const char* name, IPCCommand *ipc_command)
 {
   for (int i = 0; i < ipc_commands_len; i++) {
-    if (strcmp(ipc_commands[i].command_name, name) == 0) {
+    if (strcmp(ipc_commands[i].name, name) == 0) {
       *ipc_command = ipc_commands[i];
       return 0;
     }
@@ -293,25 +293,17 @@ ipc_get_ipc_command(const char* name, IPCCommand *ipc_command)
 }
 
 /**
- * Parse a IPC_TYPE_RUN_COMMAND message from a client. This function finds the
- * IPC command with the name given by the client in the message, and parses
- * the arguments while checking if the specified arguments match the arguments
- * that the command accepts.
+ * Parse a IPC_TYPE_RUN_COMMAND message from a client. This function extracts
+ * the arguments, argument count, argument types, and command name and returns
+ * the parsed information as an IPCParsedCommand. If this function returns
+ * successfully, the parsed_command must be freed using
+ * ipc_free_parsed_command_members.
  *
- * Returns 0 if the message was successfully parsed and if the given arguments
- *   matched the types and count of the specified command.
+ * Returns 0 if the message was successfully parsed
  * Returns -1 otherwise
- *
- * TODO: Refactor this function, maybe split it up into smaller functions. The
- *   main problem is that the parsing of the arguments rely on what is expected
- *   from the command.
- *
- * TODO: Memory leak will occur if correct string argument precedes incorrect
- *   argument
  */
 static int
-ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
-    IPCCommand *ipc_command)
+ipc_parse_run_command(char *msg, IPCParsedCommand *parsed_command)
 {
   char error_buffer[1000];
   yajl_val parent = yajl_tree_parse(msg, error_buffer, 1000);
@@ -338,13 +330,11 @@ ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
   }
 
   const char *command_name = YAJL_GET_STRING(command_val);
-  DEBUG("Received command: %s\n", command_name);
+  size_t command_name_len = strlen(command_name);
+  parsed_command->name = (char *)malloc((command_name_len + 1) * sizeof(char));
+  strcpy(parsed_command->name, command_name);
 
-  if (ipc_get_ipc_command(command_name, ipc_command) < 0) {
-    fprintf(stderr, "IPC Command %s not found\n", command_name);
-    yajl_tree_free(parent);
-    return -1;
-  }
+  DEBUG("Received command: %s\n", parsed_command->name);
 
   const char *args_path[] = {"args", 0};
   yajl_val args_val = yajl_tree_get(parent, args_path, yajl_t_array);
@@ -355,78 +345,106 @@ ipc_parse_run_command(char *msg, unsigned int *argc, Arg *args[],
     return -1;
   }
 
+  unsigned int *argc = &parsed_command->argc;
+  Arg **args = &parsed_command->args;
+  ArgType **arg_types = &parsed_command->arg_types;
+
   *argc = args_val->u.array.len;
 
   // If no arguments are specified, make a dummy argument to pass to the
   // function. This is just the way dwm's void(Arg*) functions are setup.
-  if (*argc == 0 && ipc_command->argc == 1 &&
-      *ipc_command->arg_types == ARG_TYPE_NONE) {
-    *args = (Arg*)(malloc(sizeof(Arg)));
+  if (*argc == 0) {
+    *args = (Arg *)malloc(sizeof(Arg));
+    *arg_types = (ArgType *)malloc(sizeof(ArgType));
+    (*arg_types)[0] = ARG_TYPE_NONE;
     (*args)[0].f = 0;
     (*argc)++;
-  } else if (*argc > 0 && *argc == ipc_command->argc) {
+  } else if (*argc > 0) {
     *args = (Arg*)calloc(*argc, sizeof(Arg));
+    *arg_types = (ArgType *)malloc(*argc * sizeof(ArgType));
 
     for (int i = 0; i < *argc; i++) {
       yajl_val arg_val = args_val->u.array.values[i];
-      ArgType exp_type = ipc_command->arg_types[i];
 
       if (YAJL_IS_NUMBER(arg_val)) {
         if (YAJL_IS_INTEGER(arg_val)) {
-          // Any values below 0 must be a signed int. The command must expect
-          // a signed int
-          if (YAJL_GET_INTEGER(arg_val) <= 0 && exp_type == ARG_TYPE_SINT) {
+          // Any values below 0 must be a signed int
+          if (YAJL_GET_INTEGER(arg_val) <= 0) {
             (*args)[i].i = YAJL_GET_INTEGER(arg_val);
-            DEBUG("i=%d\n", (*args)[i].i);
-            // Any values above 0 should be an unsigned int. The command can
-            // expect either an unsigned int or signed int
-          } else if (YAJL_GET_INTEGER(arg_val) > 0 &&
-                     (exp_type == ARG_TYPE_SINT || exp_type == ARG_TYPE_UINT)) {
+            (*arg_types)[i] = ARG_TYPE_SINT;
+            DEBUG("i=%ld\n", (*args)[i].i);
+            // Any values above 0 should be an unsigned int
+          } else if (YAJL_GET_INTEGER(arg_val) > 0) {
             (*args)[i].ui = YAJL_GET_INTEGER(arg_val);
-            DEBUG("ui=%d\n", (*args)[i].i);
-            // If the command expects a pointer argument, convert the value to
-            // a void pointer
-          } else if (YAJL_GET_INTEGER(arg_val) && exp_type == ARG_TYPE_PTR) {
-            (*args)[i].v = (void*)YAJL_GET_INTEGER(arg_val);
-            DEBUG("v=%p\n", (*args)[i].v);
-          } else {
-            fprintf(stderr, "Invalid arg: expected ArgType %d\n",  exp_type);
-            yajl_tree_free(parent);
-            return -1;
+            (*arg_types)[i] = ARG_TYPE_UINT;
+            DEBUG("ui=%ld\n", (*args)[i].i);
           }
           // If the number is not an integer, it must be a float
-        } else if (exp_type == ARG_TYPE_FLOAT) {
-          (*args)[i].f = (float)YAJL_GET_DOUBLE(arg_val);
-          DEBUG("f=%f\n", (*args)[i].f);
         } else {
-          fprintf(stderr, "Invalid arg: expected ArgType %d\n",  exp_type);
-          yajl_tree_free(parent);
-          return -1;
+          (*args)[i].f = (float)YAJL_GET_DOUBLE(arg_val);
+          (*arg_types)[i] = ARG_TYPE_FLOAT;
+          DEBUG("f=%f\n", (*args)[i].f);
+        // If argument is not a number, it must be a string
         }
-        // If argument is not a number, it must be a string. These pointers are
-        // freed based on the assumption that parsing matched the command's
-        // expected arguments, so an argument at a position in the array that
-        // should be of type string, is in fact an allocated string
-      } else if (YAJL_IS_STRING(arg_val) && exp_type == ARG_TYPE_STR) {
+      } else if (YAJL_IS_STRING(arg_val)) {
         char* arg_s = YAJL_GET_STRING(arg_val);
         size_t arg_s_size = (strlen(arg_s) + 1) * sizeof(char);
         (*args)[i].v = (char*)malloc(arg_s_size);
+        (*arg_types)[i] = ARG_TYPE_STR;
         strcpy((char*)(*args)[i].v, arg_s);
       }
-      else {
-        fprintf(stderr, "Invalid arg: expected ArgType %d\n",  exp_type);
-        yajl_tree_free(parent);
-        return -1;
-      }
     }
-  } else {
-    DEBUG("Got %d args for command %s, expected %d", *argc,
-        command_name, ipc_command->argc);
-    yajl_tree_free(parent);
-    return -1;
   }
 
   yajl_tree_free(parent);
+
+  return 0;
+}
+
+/**
+ * Free the members of a IPCParsedCommand struct
+ */
+static void
+ipc_free_parsed_command_members(IPCParsedCommand *command)
+{
+  for (int i = 0; i < command->argc; i++) {
+    if (command->arg_types[i] == ARG_TYPE_STR)
+      free((void *)command->args[i].v);
+  }
+  free(command->args);
+  free(command->arg_types);
+  free(command->name);
+}
+
+/**
+ * Check if the given arguments are the correct length and type. Also do any
+ * casting to correct the types.
+ *
+ * Returns 0 if the arguments were the correct length and types
+ * Returns -1 if the argument count doesn't match
+ * Returns -2 if the argument types don't match
+ */
+static int
+ipc_validate_run_command(IPCParsedCommand *parsed, const IPCCommand actual)
+{
+  if (actual.argc != parsed->argc)
+    return -1;
+
+  for (int i = 0; i < parsed->argc; i++) {
+    ArgType ptype = parsed->arg_types[i];
+    ArgType atype = actual.arg_types[i];
+
+    if (ptype != atype) {
+      if (ptype == ARG_TYPE_UINT && atype == ARG_TYPE_PTR)
+        // If this argument is supposed to be a void pointer, cast it
+        parsed->args[i].v = (void *)parsed->args[i].ui;
+      else if (ptype == ARG_TYPE_UINT && atype == ARG_TYPE_SINT)
+        // If this argument is supposed to be a signed int, cast it
+        parsed->args[i].i = parsed->args[i].ui;
+      else
+        return -2;
+    }
+  }
 
   return 0;
 }
@@ -569,31 +587,48 @@ ipc_parse_get_dwm_client(const char *msg, Window *win)
 static int
 ipc_run_command(IPCClient *ipc_client, char *msg)
 {
-  unsigned int argc;
-  Arg *args;
+  IPCParsedCommand parsed_command;
   IPCCommand ipc_command;
 
-  if (ipc_parse_run_command(msg, &argc, &args, &ipc_command) < 0) {
+  // Initialize struct
+  memset(&parsed_command, 0, sizeof(IPCParsedCommand));
+
+  if (ipc_parse_run_command(msg, &parsed_command) < 0) {
     ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND,
         "Failed to parse run command");
     return -1;
   }
 
-  if (argc == 1)
-    ipc_command.func.single_param(args);
-  else if (argc > 1)
-    ipc_command.func.array_param(args, argc);
-
-  DEBUG("Called function for command %s\n", ipc_command.command_name);
-
-  // Assumes parsing succeeded and correct argument types were given
-  for (int i = 0; i < argc; i++) {
-    if (ipc_command.arg_types[i] == ARG_TYPE_STR)
-      free((void *)args[i].v);
+  if (ipc_get_ipc_command(parsed_command.name, &ipc_command) < 0) {
+    ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND,
+        "Command %s not found", parsed_command.name);
+    ipc_free_parsed_command_members(&parsed_command);
+    return -1;
   }
 
+  int res = ipc_validate_run_command(&parsed_command, ipc_command);
+  if (res < 0) {
+    if (res == -1)
+      ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND,
+          "%u arguments provided, %u expected", parsed_command.argc,
+          ipc_command.argc);
+    else if (res == -2)
+      ipc_prepare_reply_failure(ipc_client, IPC_TYPE_RUN_COMMAND,
+          "Type mismatch");
+    ipc_free_parsed_command_members(&parsed_command);
+    return -1;
+  }
+
+  if (parsed_command.argc == 1)
+    ipc_command.func.single_param(parsed_command.args);
+  else if (parsed_command.argc > 1)
+    ipc_command.func.array_param(parsed_command.args, parsed_command.argc);
+
+  DEBUG("Called function for command %s\n", parsed_command.name);
+
+  ipc_free_parsed_command_members(&parsed_command);
+
   ipc_prepare_reply_success(ipc_client, IPC_TYPE_RUN_COMMAND);
-  free(args);
   return 0;
 }
 
