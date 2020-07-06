@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/epoll.h>
 #include <X11/cursorfont.h>
 #include <X11/keysym.h>
 #include <X11/Xatom.h>
@@ -41,8 +42,10 @@
 #endif /* XINERAMA */
 #include <X11/Xft/Xft.h>
 
+#include "types.h"
 #include "drw.h"
 #include "util.h"
+#include "ipc.h"
 
 /* macros */
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
@@ -67,13 +70,6 @@ enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms *
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
 
-typedef union {
-	int i;
-	unsigned int ui;
-	float f;
-	const void *v;
-} Arg;
-
 typedef struct {
 	unsigned int click;
 	unsigned int mask;
@@ -82,55 +78,12 @@ typedef struct {
 	const Arg arg;
 } Button;
 
-typedef struct Monitor Monitor;
-typedef struct Client Client;
-struct Client {
-	char name[256];
-	float mina, maxa;
-	int x, y, w, h;
-	int oldx, oldy, oldw, oldh;
-	int basew, baseh, incw, inch, maxw, maxh, minw, minh;
-	int bw, oldbw;
-	unsigned int tags;
-	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
-	Client *next;
-	Client *snext;
-	Monitor *mon;
-	Window win;
-};
-
 typedef struct {
 	unsigned int mod;
 	KeySym keysym;
 	void (*func)(const Arg *);
 	const Arg arg;
 } Key;
-
-typedef struct {
-	const char *symbol;
-	void (*arrange)(Monitor *);
-} Layout;
-
-struct Monitor {
-	char ltsymbol[16];
-	float mfact;
-	int nmaster;
-	int num;
-	int by;               /* bar geometry */
-	int mx, my, mw, mh;   /* screen size */
-	int wx, wy, ww, wh;   /* window area  */
-	unsigned int seltags;
-	unsigned int sellt;
-	unsigned int tagset[2];
-	int showbar;
-	int topbar;
-	Client *clients;
-	Client *sel;
-	Client *stack;
-	Monitor *next;
-	Window barwin;
-	const Layout *lt[2];
-};
 
 typedef struct {
 	const char *class;
@@ -175,6 +128,7 @@ static long getstate(Window w);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
 static void grabkeys(void);
+static int handlexevent(struct epoll_event *ev);
 static void incnmaster(const Arg *arg);
 static void keypress(XEvent *e);
 static void killclient(const Arg *arg);
@@ -203,6 +157,7 @@ static void setfullscreen(Client *c, int fullscreen);
 static void setlayout(const Arg *arg);
 static void setmfact(const Arg *arg);
 static void setup(void);
+static void setupepoll(void);
 static void seturgent(Client *c, int urg);
 static void showhide(Client *c);
 static void sigchld(int unused);
@@ -261,6 +216,8 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 	[UnmapNotify] = unmapnotify
 };
 static Atom wmatom[WMLast], netatom[NetLast];
+static int epoll_fd;
+static int dpy_fd;
 static int running = 1;
 static Cur *cursor[CurLast];
 static Clr **scheme;
@@ -492,6 +449,12 @@ cleanup(void)
 	XSync(dpy, False);
 	XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
 	XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
+
+  ipc_cleanup();
+
+  if (close(epoll_fd) < 0) {
+      fprintf(stderr, "Failed to close epoll file descriptor\n");
+  }
 }
 
 void
@@ -964,6 +927,25 @@ grabkeys(void)
 	}
 }
 
+int
+handlexevent(struct epoll_event *ev)
+{
+  if (ev->events & EPOLLIN) {
+    XEvent ev;
+    while (running && XPending(dpy)) {
+      XNextEvent(dpy, &ev);
+      if (handler[ev.type]) {
+        handler[ev.type](&ev); /* call handler */
+        ipc_send_events(mons);
+      }
+    }
+  } else if (ev-> events & EPOLLHUP) {
+    return -1;
+  }
+
+  return 0;
+}
+
 void
 incnmaster(const Arg *arg)
 {
@@ -1373,12 +1355,40 @@ restack(Monitor *m)
 void
 run(void)
 {
-	XEvent ev;
-	/* main event loop */
-	XSync(dpy, False);
-	while (running && !XNextEvent(dpy, &ev))
-		if (handler[ev.type])
-			handler[ev.type](&ev); /* call handler */
+  int event_count = 0;
+  const int MAX_EVENTS = 10;
+  struct epoll_event events[MAX_EVENTS];
+
+  XSync(dpy, False);
+
+  /* main event loop */
+  while (running) {
+    event_count = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+
+    for (int i = 0; i < event_count; i++) {
+      int event_fd = events[i].data.fd;
+      DEBUG("Got event from fd %d\n", event_fd);
+
+      if (event_fd == dpy_fd) {
+        // -1 means EPOLLHUP
+        if (handlexevent(events + i) == -1)
+          return;
+      } else if (event_fd == ipc_get_sock_fd()) {
+        ipc_handle_socket_epoll_event(events + i);
+      } else if (ipc_is_client_registered(event_fd)){
+        if (ipc_handle_client_epoll_event(events + i, mons, tags, LENGTH(tags),
+              layouts, LENGTH(layouts)) < 0) {
+          fprintf(stderr, "Error handling IPC event on fd %d\n", event_fd);
+        }
+      } else {
+        fprintf(stderr, "Got event from unknown fd %d, ptr %p, u32 %d, u64 %lu",
+            event_fd, events[i].data.ptr, events[i].data.u32,
+            events[i].data.u64);
+        fprintf(stderr, " with events %d\n", events[i].events);
+        return;
+      }
+    }
+  }
 }
 
 void
@@ -1387,7 +1397,6 @@ scan(void)
 	unsigned int i, num;
 	Window d1, d2, *wins = NULL;
 	XWindowAttributes wa;
-
 	if (XQueryTree(dpy, root, &d1, &d2, &wins, &num)) {
 		for (i = 0; i < num; i++) {
 			if (!XGetWindowAttributes(dpy, wins[i], &wa)
@@ -1595,8 +1604,37 @@ setup(void)
 	XSelectInput(dpy, root, wa.event_mask);
 	grabkeys();
 	focus(NULL);
+  setupepoll();
 }
 
+void
+setupepoll(void)
+{
+  epoll_fd = epoll_create1(0);
+  dpy_fd = ConnectionNumber(dpy);
+  struct epoll_event dpy_event;
+
+  // Initialize struct to 0
+  memset(&dpy_event, 0, sizeof(dpy_event));
+
+  DEBUG("Display socket is fd %d\n", dpy_fd);
+
+  if (epoll_fd == -1) {
+    fputs("Failed to create epoll file descriptor", stderr);
+  }
+
+  dpy_event.events = EPOLLIN;
+  dpy_event.data.fd = dpy_fd;
+  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, dpy_fd, &dpy_event)) {
+    fputs("Failed to add display file descriptor to epoll", stderr);
+    close(epoll_fd);
+    exit(1);
+  }
+
+  if (ipc_init(DWM_SOCKET_PATH, epoll_fd, ipccommands, LENGTH(ipccommands)) < 0) {
+    fputs("Failed to initialize IPC\n", stderr);
+  }
+}
 
 void
 seturgent(Client *c, int urg)
