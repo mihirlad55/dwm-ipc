@@ -830,21 +830,22 @@ ipc_accept_client()
 int
 ipc_drop_client(IPCClient *c)
 {
-  int res = close(c->fd);
+  int fd = c->fd;
+  int res = close(fd);
 
   if (res == 0) {
     struct epoll_event ev;
 
     // Stop waking up to messages from this client
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &ev);
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, &ev);
     ipc_list_remove_client(&ipc_clients, c);
 
     free(c->buffer);
     free(c);
 
-    DEBUG("Successfully removed client on fd %d\n", c->fd);
+    DEBUG("Successfully removed client on fd %d\n", fd);
   } else if (res < 0 && res != EINTR) {
-    fprintf(stderr, "Failed to close fd %d\n", c->fd);
+    fprintf(stderr, "Failed to close fd %d\n", fd);
   }
 
   return res;
@@ -854,7 +855,8 @@ int
 ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
     char **msg)
 {
-  int ret = ipc_recv_message(c->fd, (uint8_t *)msg_type, msg_size,
+  int fd = c->fd;
+  int ret = ipc_recv_message(fd, (uint8_t *)msg_type, msg_size,
       (uint8_t **)msg);
 
   if (ret < 0) {
@@ -863,7 +865,7 @@ ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
         (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
       return -2;
 
-    fprintf(stderr, "Error reading message: dropping client at fd %d\n", c->fd);
+    fprintf(stderr, "Error reading message: dropping client at fd %d\n", fd);
     ipc_drop_client(c);
 
     return -1;
@@ -874,9 +876,9 @@ ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
   nullterminate(msg, &len);
   *msg_size = len;
 
-  DEBUG("[fd %d] ", c->fd);
+  DEBUG("[fd %d] ", fd);
   DEBUG("Received message: '%.*s' ", *msg_size, *msg);
-  DEBUG("Message type: %" PRIu8 " ", *msg_type);
+  DEBUG("Message type: %" PRIu8 " ", (uint8_t)*msg_type);
   DEBUG("Message size: %" PRIu32 "\n", *msg_size);
 
   return 0;
@@ -1052,9 +1054,9 @@ ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
     DEBUG("Sending message to client at fd %d...\n", fd);
     if (c->buffer_size) ipc_write_client(c);
   } else if (ev->events & EPOLLIN) {
-    IPCMessageType msg_type;
-    uint32_t msg_size;
-    char *msg;
+    IPCMessageType msg_type = 0;
+    uint32_t msg_size = 0;
+    char *msg = NULL;
 
     DEBUG("Received message from fd %d\n", fd);
     if (ipc_read_client(c, &msg_type, &msg_size, &msg) < 0)
