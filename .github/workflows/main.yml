@@ -2,26 +2,91 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    tags:
+    - 'v*'
 
 jobs:
+  gen-patch-name:
+    runs-on: ubuntu-latest
+    outputs:
+      artifactname: ${{ steps.gen-name.outputs.artifactname }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        ref: unpatched
+
+    - id: gen-name
+      name: Generate patch name
+      run: echo "::set-output name=artifactname::dwm-ipc-$(date +%Y%m%d)-$(git rev-parse --short unpatched).diff"
+
   build:
+    needs: gen-patch-name
     runs-on: ubuntu-latest
 
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        ref: unpatched
+
+    - name: Create temporary branch
+      run: git checkout -B temp
+
+    - name: Squash commits
+      run: git merge --squash origin/master
+
+    - name: Set git username and email
+      run: |
+          git config user.email "$GIT_AUTHOR_EMAIL"
+          git config user.name "$GITHUB_ACTOR"
+      env:
+        GIT_AUTHOR_EMAIL: mihirlad55@gmail.com
+
+    - name: Temp commit
+      run: echo "$COMMIT_MESSAGE" | git commit -F -
+      env:
+        COMMIT_MESSAGE: |
+            Test message
+
+            Test body
+
+    - name: Install dependencies
+      run: sudo apt-get install libx11-6 libyajl2 libxinerama-dev
 
     - name: Compile
       run: make all
 
     - name: Generate patch
-      run: git diff unpatched > "dwm-ipc-$(datetime +%Y%m%d)-$(git diff -s --format=%h).diff"
+      run: git format-patch --stdout HEAD^ ':(exclude).github' > "$PATCH_NAME"
+      env:
+        PATCH_NAME: ${{ needs.gen-patch-name.outputs.artifactname }}
+
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload release asset
+      id: upload_release_asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ github.workspace }}/${{ needs.gen-patch-name.outputs.artifactname }}
+        asset_name: ${{ needs.gen-patch-name.outputs.artifactname }}
+        asset_content_type: text/plain
 
     - uses: actions/upload-artifact@v2
       with:
-        name: patch
-        path: ${{ github.workspace }}/*.diff
-
+        name: ${{ needs.gen-patch-name.outputs.artifactname }}
+        path: ${{ github.workspace }}/${{ needs.gen-patch-name.outputs.artifactname }}
