@@ -6,9 +6,7 @@ include config.mk
 SRC = drw.c dwm.c util.c ipc.c yajl_dumps.c IPCClient.c
 OBJ = ${SRC:.c=.o}
 
-debug: CFLAGS += -g -D_DEBUG
-
-all: options dwm ipc-client dwm-msg
+all: options dwm dwm-msg
 
 options:
 	@echo dwm build options:
@@ -27,14 +25,11 @@ config.h:
 dwm: ${OBJ}
 	${CC} -o $@ ${OBJ} ${LDFLAGS}
 
-ipc-client: ipc-client.c
-	${CC} ipc-client.c -o $@ ${LDFLAGS}
-
 dwm-msg: dwm-msg.c
 	${CC} dwm-msg.c -o $@ ${LDFLAGS}
 
 clean:
-	rm -f dwm config.h ${OBJ} dwm-${VERSION}.tar.gz
+	rm -f dwm ${OBJ} dwm-${VERSION}.tar.gz
 	rm -rf ~/shared/dwm-ipc
 
 dist: clean
@@ -52,10 +47,6 @@ install: all
 	mkdir -p ${DESTDIR}${MANPREFIX}/man1
 	sed "s/VERSION/${VERSION}/g" < dwm.1 > ${DESTDIR}${MANPREFIX}/man1/dwm.1
 	chmod 644 ${DESTDIR}${MANPREFIX}/man1/dwm.1
-
-debug: all
-	mkdir -p ~/shared/dwm-ipc
-	cp -rf * ~/shared/dwm-ipc/
 
 uninstall:
 	rm -f ${DESTDIR}${PREFIX}/bin/dwm\
