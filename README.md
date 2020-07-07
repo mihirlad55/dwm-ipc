@@ -1,4 +1,6 @@
 # dwm-ipc
+![Main CI](https://github.com/mihirlad55/dwm-ipc/workflows/Main%20CI/badge.svg)
+
 dwm-ipc is a patch for dwm that implements inter-process communication through a
 UNIX socket. This allows you to query the window manager for information, listen
 for events such as tag changes or layout changes, as well as send commands to
