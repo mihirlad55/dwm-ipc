@@ -98,7 +98,7 @@ jobs:
           https://github.com/mihirlad55/dwm-ipc
 
     - name: Generate patch
-      run: git format-patch --stdout HEAD^ ':(exclude).github' > "$PATCH_NAME"
+      run: git format-patch --stdout HEAD^ ':(exclude).github' ':(exclude)README' ':(exclude)README.md' > "$PATCH_NAME"
       env:
         PATCH_NAME: ${{ needs.gen-patch-name.outputs.patch-name }}
 
