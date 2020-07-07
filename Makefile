@@ -34,7 +34,7 @@ dwm-msg: dwm-msg.c
 	${CC} dwm-msg.c -o $@ ${LDFLAGS}
 
 clean:
-	rm -f dwm config.h ${OBJ} dwm-${VERSION}.tar.gz
+	rm -f dwm dwm-msg config.h ${OBJ} dwm-${VERSION}.tar.gz
 	rm -rf ~/shared/dwm-ipc
 
 dist: clean
