@@ -1,4 +1,4 @@
-name: CI
+name: Main CI
 
 on:
   push:
@@ -30,21 +30,28 @@ jobs:
         fi
 
   build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        ref: master
+
+    - name: Install compilation dependencies
+      run: sudo apt-get install libx11-dev libyajl-dev libxinerama-dev
+
+    - name: Compile
+      run: make all
+
+  release:
     needs: gen-patch-name
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
         ref: unpatched
-
-    - name: Create temporary branch
-      run: git checkout -B temp
-
-    - name: Squash commits
-      run: git merge --squash origin/master
 
     - name: Set git username and email
       run: |
@@ -53,7 +60,13 @@ jobs:
       env:
         GIT_AUTHOR_EMAIL: mihirlad55@gmail.com
 
-    - name: Make unified commit
+    - name: Create clean temporary branch
+      run: git checkout -B temp
+
+    - name: Squash master into branch temp
+      run: git merge --squash origin/master
+
+    - name: Make patch commit
       run: echo "$COMMIT_MESSAGE" | git commit -F -
       env:
         COMMIT_MESSAGE: |
@@ -83,12 +96,6 @@ jobs:
           For more info on the IPC implementation and how to send/receive
           messages, documentation can be found at
           https://github.com/mihirlad55/dwm-ipc
-
-    - name: Install dependencies
-      run: sudo apt-get install libx11-dev libyajl-dev libxinerama-dev
-
-    - name: Compile
-      run: make all
 
     - name: Generate patch
       run: git format-patch --stdout HEAD^ ':(exclude).github' > "$PATCH_NAME"
