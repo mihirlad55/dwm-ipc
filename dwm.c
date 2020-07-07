@@ -1632,7 +1632,7 @@ setupepoll(void)
     exit(1);
   }
 
-  if (ipc_init(DWM_SOCKET_PATH, epoll_fd, ipccommands, LENGTH(ipccommands)) < 0) {
+  if (ipc_init(ipcsockpath, epoll_fd, ipccommands, LENGTH(ipccommands)) < 0) {
     fputs("Failed to initialize IPC\n", stderr);
   }
 }
