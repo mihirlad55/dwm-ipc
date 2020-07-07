@@ -29,7 +29,7 @@ dwm-msg: dwm-msg.c
 	${CC} dwm-msg.c -o $@ ${LDFLAGS}
 
 clean:
-	rm -f dwm ${OBJ} dwm-${VERSION}.tar.gz
+	rm -f dwm dwm-msg ${OBJ} dwm-${VERSION}.tar.gz
 
 dist: clean
 	mkdir -p dwm-${VERSION}
