@@ -30,7 +30,6 @@ dwm-msg: dwm-msg.c
 
 clean:
 	rm -f dwm ${OBJ} dwm-${VERSION}.tar.gz
-	rm -rf ~/shared/dwm-ipc
 
 dist: clean
 	mkdir -p dwm-${VERSION}
