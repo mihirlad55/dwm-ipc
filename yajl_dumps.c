@@ -90,6 +90,7 @@ dump_monitor(yajl_gen gen, Monitor *mon)
   ystr("bar_y"); yajl_gen_integer(gen, mon->by);
   ystr("show_bar"); yajl_gen_bool(gen, mon->showbar);
   ystr("top_bar"); yajl_gen_bool(gen, mon->topbar);
+  ystr("bar_window_id"); yajl_gen_integer(gen, mon->barwin);
 
   ystr("screen");
   yajl_gen_map_open(gen);
@@ -122,6 +123,12 @@ dump_monitor(yajl_gen gen, Monitor *mon)
   ystr("selected_client"); yajl_gen_integer(gen, mon->sel->win);
 
   ystr("stack");
+  yajl_gen_array_open(gen);
+  for (Client* c = mon->stack; c; c = c->snext)
+    yajl_gen_integer(gen, c->win);
+  yajl_gen_array_close(gen);
+
+  ystr("clients");
   yajl_gen_array_open(gen);
   for (Client* c = mon->clients; c; c = c->snext)
     yajl_gen_integer(gen, c->win);

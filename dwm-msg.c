@@ -54,7 +54,7 @@ recv_message(uint8_t *msg_type, uint32_t *reply_size, uint8_t **reply)
 
   // Try to read header
   while (read_bytes < to_read) {
-    int n = read(sock_fd, header + read_bytes, to_read - read_bytes);
+    ssize_t n = read(sock_fd, header + read_bytes, to_read - read_bytes);
 
     if (n == 0) {
       if (read_bytes == 0) {
@@ -97,7 +97,7 @@ recv_message(uint8_t *msg_type, uint32_t *reply_size, uint8_t **reply)
   // Extract payload
   read_bytes = 0;
   while (read_bytes < *reply_size) {
-    const int n = read(sock_fd, *reply + read_bytes, *reply_size - read_bytes);
+    ssize_t n = read(sock_fd, *reply + read_bytes, *reply_size - read_bytes);
 
     if (n == 0) {
       fprintf(stderr, "Unexpectedly reached EOF while reading payload.");
@@ -140,6 +140,25 @@ read_socket(IPCMessageType *msg_type, uint32_t *msg_size, char **msg)
   return 0;
 }
 
+static ssize_t
+write_socket(const void *buf, size_t count)
+{
+  size_t written = 0;
+
+  while (written < count) {
+    const ssize_t n = write(sock_fd, buf + written, count - written);
+
+    if (n == -1) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+        continue;
+      else
+        return n;
+    }
+    written += n;
+  }
+  return written;
+}
+
 static void
 connect_to_socket()
 {
@@ -168,15 +187,16 @@ send_message(IPCMessageType msg_type, uint32_t msg_size, uint8_t *msg)
   };
 
   size_t header_size = sizeof(dwm_ipc_header_t);
+  size_t total_size = header_size + msg_size;
 
-  uint8_t buffer[header_size + header.size];
+  uint8_t buffer[total_size];
 
   // Copy header to buffer
   memcpy(buffer, &header, header_size);
   // Copy message to buffer
   memcpy(buffer + header_size, msg, header.size);
 
-  write(sock_fd, buffer, header_size + header.size);
+  write_socket(buffer, total_size);
 
   return 0;
 }
