@@ -100,7 +100,7 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
 
   // Try to read header
   while (read_bytes < to_read) {
-    int n = read(fd, header + read_bytes, to_read - read_bytes);
+    const ssize_t n = read(fd, header + read_bytes, to_read - read_bytes);
 
     if (n == 0) {
       if (read_bytes == 0) {
@@ -149,7 +149,7 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
 
   read_bytes = 0;
   while (read_bytes < *reply_size) {
-    const int n = read(fd, *reply + read_bytes, *reply_size - read_bytes);
+    const ssize_t n = read(fd, *reply + read_bytes, *reply_size - read_bytes);
 
     if (n == 0) {
       fprintf(stderr, "Unexpectedly reached EOF while reading payload.");

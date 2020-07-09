@@ -54,7 +54,7 @@ recv_message(uint8_t *msg_type, uint32_t *reply_size, uint8_t **reply)
 
   // Try to read header
   while (read_bytes < to_read) {
-    int n = read(sock_fd, header + read_bytes, to_read - read_bytes);
+    ssize_t n = read(sock_fd, header + read_bytes, to_read - read_bytes);
 
     if (n == 0) {
       if (read_bytes == 0) {
@@ -97,7 +97,7 @@ recv_message(uint8_t *msg_type, uint32_t *reply_size, uint8_t **reply)
   // Extract payload
   read_bytes = 0;
   while (read_bytes < *reply_size) {
-    const int n = read(sock_fd, *reply + read_bytes, *reply_size - read_bytes);
+    ssize_t n = read(sock_fd, *reply + read_bytes, *reply_size - read_bytes);
 
     if (n == 0) {
       fprintf(stderr, "Unexpectedly reached EOF while reading payload.");
