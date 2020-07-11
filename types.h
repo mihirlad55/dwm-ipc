@@ -62,6 +62,7 @@ struct Monitor {
   Monitor *next;
   Window barwin;
   const Layout *lt[2];
+  const Layout *lastlt;
 };
 
 #endif //  TYPES_H_

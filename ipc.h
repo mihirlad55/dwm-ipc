@@ -202,7 +202,8 @@ void ipc_prepare_reply_success(IPCClient *c, IPCMessageType msg_type);
  * @param TagState old_state The old tag state
  * @param TagState new_state The new (now current) tag state
  */
-void ipc_tag_change_event(const int mon_num, TagState old_state, TagState new_state);
+void ipc_tag_change_event(const int mon_num, TagState old_state,
+                          TagState new_state);
 
 /**
  * Send a selected_client_change_event to all subscribers. Should be called only
@@ -221,10 +222,12 @@ void ipc_selected_client_change_event(const int mon_num, Client *old_client,
  *
  * @param int mon_num The index of the monitor (Monitor.num property)
  * @param const char *old_symbol The old layout symbol
+ * @param const Layout *old_layout Address to the old Layout
  * @param const char *new_symbol The new (now current) layout symbol
+ * @param const Layout *new_layout Address to the new Layout
  */
 void ipc_layout_change_event(const int mon_num, const char *old_symbol,
-                             const char *new_symbol);
+    const Layout *old_layout, const char *new_symbol, const Layout *new_layout);
 
 /**
  * Check to see if an event has occured and call the *_change_event functions
@@ -247,8 +250,8 @@ void ipc_send_events(Monitor *mons);
  * @param const Layout *layouts Array of available layouts
  * @param const int layouts_len Length of layouts array
  *
- * @returns int 0 if event was successfully handled, -1 on any error receiving or
- *   handling incoming messages or unhandled epoll event.
+ * @returns int 0 if event was successfully handled, -1 on any error receiving
+ * or handling incoming messages or unhandled epoll event.
  */
 int ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
                                   const char *tags[], const int tags_len,
