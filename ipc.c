@@ -369,12 +369,12 @@ ipc_parse_run_command(char *msg, IPCParsedCommand *parsed_command)
       if (YAJL_IS_NUMBER(arg_val)) {
         if (YAJL_IS_INTEGER(arg_val)) {
           // Any values below 0 must be a signed int
-          if (YAJL_GET_INTEGER(arg_val) <= 0) {
+          if (YAJL_GET_INTEGER(arg_val) < 0) {
             (*args)[i].i = YAJL_GET_INTEGER(arg_val);
             (*arg_types)[i] = ARG_TYPE_SINT;
             DEBUG("i=%ld\n", (*args)[i].i);
             // Any values above 0 should be an unsigned int
-          } else if (YAJL_GET_INTEGER(arg_val) > 0) {
+          } else if (YAJL_GET_INTEGER(arg_val) >= 0) {
             (*args)[i].ui = YAJL_GET_INTEGER(arg_val);
             (*arg_types)[i] = ARG_TYPE_UINT;
             DEBUG("ui=%ld\n", (*args)[i].i);
