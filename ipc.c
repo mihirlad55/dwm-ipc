@@ -1037,11 +1037,12 @@ ipc_selected_client_change_event(int mon_num, Client *old_client,
 
 void
 ipc_layout_change_event(const int mon_num, const char *old_symbol,
-    const char *new_symbol)
+    const Layout *old_layout, const char *new_symbol, const Layout *new_layout)
 {
   yajl_gen gen;
   ipc_event_init_message(&gen);
-  dump_layout_change_event(gen, mon_num, old_symbol, new_symbol);
+  dump_layout_change_event(gen, mon_num, old_symbol, old_layout, new_symbol,
+      new_layout);
   ipc_event_prepare_send_message(gen, IPC_EVENT_LAYOUT_CHANGE);
 }
 
@@ -1071,9 +1072,12 @@ ipc_send_events(Monitor *mons)
       m->lastsel = m->sel;
     }
 
-    if (strcmp(m->ltsymbol, m->lastltsymbol) != 0) {
-      ipc_layout_change_event(m->num, m->lastltsymbol, m->ltsymbol);
+    if (strcmp(m->ltsymbol, m->lastltsymbol) != 0 ||
+        m->lastlt != m->lt[m->sellt]) {
+      ipc_layout_change_event(m->num, m->lastltsymbol, m->lastlt, m->ltsymbol,
+          m->lt[m->sellt]);
       strcpy(m->lastltsymbol, m->ltsymbol);
+      m->lastlt = m->lt[m->sellt];
     }
   }
 }

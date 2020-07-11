@@ -24,7 +24,8 @@ int dump_client_change_event(yajl_gen gen, Client *old_client,
                              Client *new_client, int mon_num);
 
 int dump_layout_change_event(yajl_gen gen, const int mon_num,
-                             const char *old_symbol, const char *new_symbol);
+    const char *old_symbol, const Layout *old_layout, const char* new_symbol,
+    const Layout *new_layout);
 
 int dump_error_message(yajl_gen gen, const char *reason);
 

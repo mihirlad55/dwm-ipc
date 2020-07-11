@@ -221,10 +221,12 @@ void ipc_selected_client_change_event(const int mon_num, Client *old_client,
  *
  * @param int mon_num The index of the monitor (Monitor.num property)
  * @param const char *old_symbol The old layout symbol
+ * @param const Layout *old_layout Address to the old Layout
  * @param const char *new_symbol The new (now current) layout symbol
+ * @param const Layout *new_layout Address to the new Layout
  */
 void ipc_layout_change_event(const int mon_num, const char *old_symbol,
-                             const char *new_symbol);
+    const Layout *old_layout, const char *new_symbol, const Layout *new_layout);
 
 /**
  * Check to see if an event has occured and call the *_change_event functions

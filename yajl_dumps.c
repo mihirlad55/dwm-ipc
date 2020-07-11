@@ -116,8 +116,10 @@ dump_monitor(yajl_gen gen, Monitor *mon)
 
   ystr("layout");
   yajl_gen_map_open(gen);
-  ystr("old"); ystr(mon->lt[mon->sellt ^ 1]->symbol);
-  ystr("current"); ystr(mon->lt[mon->sellt]->symbol);
+  ystr("old_address");
+  yajl_gen_integer(gen, (uintptr_t)mon->lt[mon->sellt ^ 1]);
+  ystr("current_address");
+  yajl_gen_integer(gen, (uintptr_t)mon->lt[mon->sellt]);
   yajl_gen_map_close(gen);
 
   ystr("selected_client"); yajl_gen_integer(gen, mon->sel->win);
@@ -149,7 +151,7 @@ dump_layouts(yajl_gen gen, const Layout layouts[], const int layouts_len)
     ystr("layout_symbol");
     ystr(layouts[i].symbol);
     ystr("layout_address");
-    yajl_gen_integer(gen, (intptr_t)&layouts[i]);
+    yajl_gen_integer(gen, (uintptr_t)(layouts + i));
     yajl_gen_map_close(gen);
   }
 
@@ -224,7 +226,8 @@ dump_client_change_event(yajl_gen gen, Client *old_client, Client *new_client,
 
 int
 dump_layout_change_event(yajl_gen gen, const int mon_num,
-    const char *old_symbol, const char *new_symbol)
+    const char *old_symbol, const Layout *old_layout, const char* new_symbol,
+    const Layout *new_layout)
 {
   yajl_gen_map_open(gen);
 
@@ -233,9 +236,19 @@ dump_layout_change_event(yajl_gen gen, const int mon_num,
 
   ystr("monitor_number"); yajl_gen_integer(gen, mon_num);
 
-  ystr("old"); ystr(old_symbol);
+  ystr("old"); yajl_gen_map_open(gen);
 
-  ystr("new"); ystr(new_symbol);
+  ystr("symbol"); ystr(old_symbol);
+  ystr("address"); yajl_gen_integer(gen, (uintptr_t)old_layout);
+
+  yajl_gen_map_close(gen);
+
+  ystr("new"); yajl_gen_map_open(gen);
+
+  ystr("symbol"); ystr(new_symbol);
+  ystr("address"); yajl_gen_integer(gen, (uintptr_t)new_layout);
+
+  yajl_gen_map_close(gen);
 
   yajl_gen_map_close(gen);
 

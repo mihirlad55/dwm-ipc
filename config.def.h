@@ -128,7 +128,7 @@ static IPCCommand ipccommands[] = {
   IPCCOMMAND(  killclient,          1,      {ARG_TYPE_SINT}   ),
   IPCCOMMAND(  togglefloating,      1,      {ARG_TYPE_NONE}   ),
   IPCCOMMAND(  setmfact,            1,      {ARG_TYPE_FLOAT}  ),
-  IPCCOMMAND(  setlayout,           1,      {ARG_TYPE_PTR}    ),
+  IPCCOMMAND(  setlayoutsafe,       1,      {ARG_TYPE_UINT}   ),
   IPCCOMMAND(  quit,                1,      {ARG_TYPE_NONE}   )
 };
 
