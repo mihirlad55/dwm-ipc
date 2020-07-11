@@ -202,7 +202,8 @@ void ipc_prepare_reply_success(IPCClient *c, IPCMessageType msg_type);
  * @param TagState old_state The old tag state
  * @param TagState new_state The new (now current) tag state
  */
-void ipc_tag_change_event(const int mon_num, TagState old_state, TagState new_state);
+void ipc_tag_change_event(const int mon_num, TagState old_state,
+                          TagState new_state);
 
 /**
  * Send a selected_client_change_event to all subscribers. Should be called only
@@ -249,8 +250,8 @@ void ipc_send_events(Monitor *mons);
  * @param const Layout *layouts Array of available layouts
  * @param const int layouts_len Length of layouts array
  *
- * @returns int 0 if event was successfully handled, -1 on any error receiving or
- *   handling incoming messages or unhandled epoll event.
+ * @returns int 0 if event was successfully handled, -1 on any error receiving
+ * or handling incoming messages or unhandled epoll event.
  */
 int ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
                                   const char *tags[], const int tags_len,
