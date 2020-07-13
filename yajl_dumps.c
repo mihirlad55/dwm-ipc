@@ -85,6 +85,10 @@ int
 dump_monitor(yajl_gen gen, Monitor *mon)
 {
   YMAP(
+    YSTR("master_factor"); YDOUBLE(mon->mfact);
+    YSTR("num_master"); YINT(mon->nmaster);
+    YSTR("num"); YINT(mon->num);
+
     YSTR("monitor_geometry"); YMAP(
       YSTR("x"); YINT(mon->mx);
       YSTR("y"); YINT(mon->my);
@@ -98,10 +102,6 @@ dump_monitor(yajl_gen gen, Monitor *mon)
       YSTR("width"); YINT(mon->ww);
       YSTR("height"); YINT(mon->wh);
     )
-
-    YSTR("master_factor"); YDOUBLE(mon->mfact);
-    YSTR("num_master"); YINT(mon->nmaster);
-    YSTR("num"); YINT(mon->num);
 
     YSTR("tagset"); YMAP(
       YSTR("current");  YINT(mon->tagset[mon->seltags]);
