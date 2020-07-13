@@ -6,14 +6,14 @@ on:
     - 'v*'
 
 jobs:
-  gen-patch-name:
+  set-patch-properties:
     runs-on: ubuntu-latest
     outputs:
-      patch-name: ${{ steps.gen-name.outputs.patch-name }}
-      update-patch-name: ${{ steps.gen-name.outputs.update-patch-name }}
-      update-notes: ${{ steps.gen-name.outputs.update-notes }}
-      last-tag: ${{ steps.gen-name.outputs.last-tag }}
-      new-tag: ${{ steps.gen-name.outputs.new-tag }}
+      patch-name: ${{ steps.capture-properties.outputs.patch-name }}
+      update-patch-name: ${{ steps.capture-properties.outputs.update-patch-name }}
+      update-notes: ${{ steps.capture-properties.outputs.update-notes }}
+      last-tag: ${{ steps.capture-properties.outputs.last-tag }}
+      new-tag: ${{ steps.capture-properties.outputs.new-tag }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -21,10 +21,12 @@ jobs:
         fetch-depth: 0
         ref: unpatched
 
-    - id: gen-name
-      name: Generate patch name
+    - id: capture-properties
+      name: Capture patch properties
       run: |
+        # Tag on last vanilla dwm commit
         tag="$(git tag --points-at=unpatched)"
+
         if [[ "$tags" != "" ]]; then
           echo "::set-output name=patch-name::dwm-ipc-${tag}.diff"
         else
@@ -35,10 +37,13 @@ jobs:
 
         last_tag="$(git tag --sort=committerdate | grep 'v' | tail -n2 | head -n1)"
         echo "::set-output name=last-tag::${last_tag}"
+
         new_tag="$(git tag --sort=committerdate | grep 'v' | tail -n1)"
         echo "::set-output name=new-tag::${new_tag}"
         echo "::set-output name=update-patch-name::dwm-ipc-${last_tag}-to-${new_tag}.diff"
+
         update_notes="$(git tag ${new_tag} -n1 --format=%\(body\))"
+        # Preserve special characters
         update_notes="${update_notes//'%'/'%25'}"
         update_notes="${update_notes//$'\n'/'%0A'}"
         update_notes="${update_notes//$'\r'/'%0D'}"
@@ -58,8 +63,31 @@ jobs:
     - name: Compile
       run: make all
 
+
   release:
-    needs: gen-patch-name
+    runs-on: ubuntu-latest
+    outputs:
+      upload-url: ${{ steps.create-release.outputs.upload_url }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.ref }}
+
+    - name: Create release
+      id: create-release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: IPC Patch ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+
+  generate-patch:
+    needs: [set-patch-properties, release]
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -115,72 +143,72 @@ jobs:
     - name: Generate patch
       run: git format-patch --stdout HEAD^ ':(exclude).github' ':(exclude)README' ':(exclude)README.md' > "$PATCH_NAME"
       env:
-        PATCH_NAME: ${{ needs.gen-patch-name.outputs.patch-name }}
-
-    - name: Create release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: IPC Patch ${{ github.ref }}
-        draft: false
-        prerelease: false
+        PATCH_NAME: ${{ needs.set-patch-properties.outputs.patch-name }}
 
     - name: Upload patch asset
-      id: upload_release_asset
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/${{ needs.gen-patch-name.outputs.patch-name }}
-        asset_name: ${{ needs.gen-patch-name.outputs.patch-name }}
+        upload_url: ${{ needs.release.outputs.upload-url }}
+        asset_path: ${{ github.workspace }}/${{ needs.set-patch-properties.outputs.patch-name }}
+        asset_name: ${{ needs.set-patch-properties.outputs.patch-name }}
         asset_content_type: text/plain
 
     - uses: actions/upload-artifact@v2
       with:
-        name: ${{ needs.gen-patch-name.outputs.patch-name }}
-        path: ${{ github.workspace }}/${{ needs.gen-patch-name.outputs.patch-name }}
+        name: ${{ needs.set-patch-properties.outputs.patch-name }}
+        path: ${{ github.workspace }}/${{ needs.set-patch-properties.outputs.patch-name }}
 
+
+  generate-update-patch:
+    needs: [set-patch-properties, release]
+    runs-on: ubuntu-latest
+    steps:
     - name: Checkout last tag
       uses: actions/checkout@v2
       with:
-        ref: ${{ needs.gen-patch-name.outputs.last-tag }}
+        fetch-depth: 0
+        ref: ${{ needs.set-patch-properties.outputs.last-tag }}
 
-    - name: Create clean temporary branch 2
-      run: git checkout -B temp2
+    - name: Set git username and email
+      run: |
+          git config user.email "$GIT_AUTHOR_EMAIL"
+          git config user.name "$GITHUB_ACTOR"
+      env:
+        GIT_AUTHOR_EMAIL: mihirlad55@gmail.com
 
-    - name: Squash master into branch temp2
+    - name: Create clean temporary branch
+      run: git checkout -B temp
+
+    - name: Squash master into branch temp
       run: git merge --squash origin/master
 
     - name: Make update patch commit
       run: echo "$COMMIT_MESSAGE" | git commit -F -
       env:
         COMMIT_MESSAGE: |
-            Update patch from ${{ needs.gen-patch-name.outputs.last-tag }} to ${{ needs.gen-patch-name.outputs.new-tag }}
+            Update from ${{ needs.set-patch-properties.outputs.last-tag }} to ${{ needs.set-patch-properties.outputs.new-tag }}
 
-            ${{ needs.gen-patch-name.outputs.update-notes }}
+            ${{ needs.set-patch-properties.outputs.update-notes }}
 
     - name: Generate update patch
       run: git format-patch --stdout HEAD^ ':(exclude).github' ':(exclude)README' ':(exclude)README.md' > "$UPDATE_PATCH_NAME"
       env:
-        LAST_TAG: ${{ needs.gen-patch-name.outputs.last-tag }}
-        UPDATE_PATCH_NAME: ${{ needs.gen-patch-name.outputs.update-patch-name }}
+        LAST_TAG: ${{ needs.set-patch-properties.outputs.last-tag }}
+        UPDATE_PATCH_NAME: ${{ needs.set-patch-properties.outputs.update-patch-name }}
 
     - name: Upload update patch asset
-      id: upload_update_release_asset
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/${{ needs.gen-patch-name.outputs.update-patch-name }}
-        asset_name: ${{ needs.gen-patch-name.outputs.update-patch-name }}
+        upload_url: ${{ needs.release.outputs.upload-url }}
+        asset_path: ${{ github.workspace }}/${{ needs.set-patch-properties.outputs.update-patch-name }}
+        asset_name: ${{ needs.set-patch-properties.outputs.update-patch-name }}
         asset_content_type: text/plain
 
     - uses: actions/upload-artifact@v2
       with:
-        name: ${{ needs.gen-patch-name.outputs.update-patch-name }}
-        path: ${{ github.workspace }}/${{ needs.gen-patch-name.outputs.update-patch-name }}
+        name: ${{ needs.set-patch-properties.outputs.update-patch-name }}
+        path: ${{ github.workspace }}/${{ needs.set-patch-properties.outputs.update-patch-name }}
