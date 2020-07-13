@@ -4,76 +4,79 @@
 int
 dump_tags(yajl_gen gen, const char *tags[], int tags_len)
 {
-  yajl_gen_array_open(gen);
-  for (int i = 0; i < tags_len; i++) {
-    yajl_gen_map_open(gen);
-    ystr("bit_mask"); yajl_gen_integer(gen, 1 << i);
-    ystr("name"); ystr(tags[i]);
-    yajl_gen_map_close(gen);
-  }
-  yajl_gen_array_close(gen);
+  YARR(
+    for (int i = 0; i < tags_len; i++) {
+      YMAP(
+        YSTR("bit_mask"); YINT(1 << i);
+        YSTR("name"); YSTR(tags[i]);
+      )
+    }
+  )
+
   return 0;
 }
 
 int
 dump_client(yajl_gen gen, Client *c)
 {
-  yajl_gen_map_open(gen);
+  YMAP(
+    YSTR("name"); YSTR(c->name);
+    YSTR("tags"); YINT(c->tags);
+    YSTR("window_id"); YINT(c->win);
+    YSTR("monitor_number"); YINT(c->mon->num);
 
-  ystr("name"); ystr(c->name);
-  ystr("mina"); yajl_gen_double(gen, c->mina);
-  ystr("maxa"); yajl_gen_double(gen, c->maxa);
-  ystr("tags"); yajl_gen_integer(gen, c->tags);
-  ystr("window_id"); yajl_gen_integer(gen, c->win);
-  ystr("monitor_number"); yajl_gen_integer(gen, c->mon->num);
+    YSTR("geometry"); YMAP(
+      YSTR("current"); YMAP (
+        YSTR("x"); YINT(c->x);
+        YSTR("y"); YINT(c->y);
+        YSTR("width"); YINT(c->w);
+        YSTR("height"); YINT(c->h);
+      )
+      YSTR("old"); YMAP(
+        YSTR("x"); YINT(c->oldx);
+        YSTR("y"); YINT(c->oldy);
+        YSTR("width"); YINT(c->oldw);
+        YSTR("height"); YINT(c->oldh);
+      )
+    )
 
-  ystr("size");
-  yajl_gen_map_open(gen);
-  ystr("current");
-  yajl_gen_map_open(gen);
-  ystr("x"); yajl_gen_integer(gen, c->x);
-  ystr("y"); yajl_gen_integer(gen, c->y);
-  ystr("width"); yajl_gen_integer(gen, c->w);
-  ystr("height"); yajl_gen_integer(gen, c->h);
-  yajl_gen_map_close(gen);
-  ystr("old");
-  yajl_gen_map_open(gen);
-  ystr("x"); yajl_gen_integer(gen, c->oldx);
-  ystr("y"); yajl_gen_integer(gen, c->oldy);
-  ystr("width"); yajl_gen_integer(gen, c->oldw);
-  ystr("height"); yajl_gen_integer(gen, c->oldh);
-  yajl_gen_map_close(gen);
-  yajl_gen_map_close(gen);
+    YSTR("size_hints"); YMAP(
+      YSTR("base"); YMAP(
+        YSTR("width"); YINT(c->basew);
+        YSTR("height"); YINT(c->baseh);
+      )
+      YSTR("step"); YMAP(
+        YSTR("width"); YINT(c->incw);
+        YSTR("height"); YINT(c->inch);
+      )
+      YSTR("max"); YMAP(
+        YSTR("width"); YINT(c->maxw);
+        YSTR("height"); YINT(c->maxh);
+      )
+      YSTR("min"); YMAP(
+        YSTR("width"); YINT(c->minw);
+        YSTR("height"); YINT(c->minh);
+      )
+      YSTR("aspect_ratio"); YMAP(
+        YSTR("min"); YDOUBLE(c->mina);
+        YSTR("max"); YDOUBLE(c->maxa);
+      )
+    )
 
-  ystr("size_hints");
-  yajl_gen_map_open(gen);
-  ystr("base_width"); yajl_gen_integer(gen, c->basew);
-  ystr("base_height"); yajl_gen_integer(gen, c->baseh);
-  ystr("increase_width"); yajl_gen_integer(gen, c->incw);
-  ystr("increase_height"); yajl_gen_integer(gen, c->inch);
-  ystr("max_width"); yajl_gen_integer(gen, c->maxw);
-  ystr("max_height"); yajl_gen_integer(gen, c->maxh);
-  ystr("min_width"); yajl_gen_integer(gen, c->minw);
-  ystr("min_height"); yajl_gen_integer(gen, c->minh);
-  yajl_gen_map_close(gen);
+    YSTR("border_width"); YMAP(
+      YSTR("current"); YINT(c->bw);
+      YSTR("old"); YINT(c->oldbw);
+    )
 
-  ystr("border");
-  yajl_gen_map_open(gen);
-  ystr("current_width"); yajl_gen_integer(gen, c->bw);
-  ystr("old_width"); yajl_gen_integer(gen, c->oldbw);
-  yajl_gen_map_close(gen);
-
-  ystr("states");
-  yajl_gen_map_open(gen);
-  ystr("is_fixed"); yajl_gen_bool(gen, c->isfixed);
-  ystr("is_floating"); yajl_gen_bool(gen, c->isfloating);
-  ystr("is_urgent"); yajl_gen_bool(gen, c->isurgent);
-  ystr("is_fullscreen"); yajl_gen_bool(gen, c->isfullscreen);
-  ystr("never_focus"); yajl_gen_bool(gen, c->neverfocus);
-  ystr("old_state"); yajl_gen_bool(gen, c->oldstate);
-  yajl_gen_map_close(gen);
-
-  yajl_gen_map_close(gen);
+    YSTR("states"); YMAP(
+      YSTR("is_fixed"); YBOOL(c->isfixed);
+      YSTR("is_floating"); YBOOL(c->isfloating);
+      YSTR("is_urgent"); YBOOL(c->isurgent);
+      YSTR("never_focus"); YBOOL(c->neverfocus);
+      YSTR("old_state"); YBOOL(c->oldstate);
+      YSTR("is_fullscreen"); YBOOL(c->isfullscreen);
+    )
+  )
 
   return 0;
 }
@@ -81,62 +84,60 @@ dump_client(yajl_gen gen, Client *c)
 int
 dump_monitor(yajl_gen gen, Monitor *mon)
 {
-  yajl_gen_map_open(gen);
+  YMAP(
+    YSTR("monitor_geometry"); YMAP(
+      YSTR("x"); YINT(mon->mx);
+      YSTR("y"); YINT(mon->my);
+      YSTR("width"); YINT(mon->mw);
+      YSTR("height"); YINT(mon->mh);
+    )
 
-  ystr("layout_symbol"); ystr(mon->ltsymbol);
-  ystr("mfact"); yajl_gen_double(gen, mon->mfact);
-  ystr("nmaster"); yajl_gen_integer(gen, mon->nmaster);
-  ystr("num"); yajl_gen_integer(gen, mon->num);
-  ystr("bar_y"); yajl_gen_integer(gen, mon->by);
-  ystr("show_bar"); yajl_gen_bool(gen, mon->showbar);
-  ystr("top_bar"); yajl_gen_bool(gen, mon->topbar);
-  ystr("bar_window_id"); yajl_gen_integer(gen, mon->barwin);
+    YSTR("window_geometry"); YMAP(
+      YSTR("x"); YINT(mon->wx);
+      YSTR("y"); YINT(mon->wy);
+      YSTR("width"); YINT(mon->ww);
+      YSTR("height"); YINT(mon->wh);
+    )
 
-  ystr("screen");
-  yajl_gen_map_open(gen);
-  ystr("x"); yajl_gen_integer(gen, mon->mx);
-  ystr("y"); yajl_gen_integer(gen, mon->my);
-  ystr("width"); yajl_gen_integer(gen, mon->mw);
-  ystr("height"); yajl_gen_integer(gen, mon->mh);
-  yajl_gen_map_close(gen);
+    YSTR("master_factor"); YDOUBLE(mon->mfact);
+    YSTR("num_master"); YINT(mon->nmaster);
+    YSTR("num"); YINT(mon->num);
 
-  ystr("window");
-  yajl_gen_map_open(gen);
-  ystr("x"); yajl_gen_integer(gen, mon->wx);
-  ystr("y"); yajl_gen_integer(gen, mon->wy);
-  ystr("width"); yajl_gen_integer(gen, mon->ww);
-  ystr("height"); yajl_gen_integer(gen, mon->wh);
-  yajl_gen_map_close(gen);
+    YSTR("tagset"); YMAP(
+      YSTR("current");  YINT(mon->tagset[mon->seltags]);
+      YSTR("old"); YINT(mon->tagset[mon->seltags ^ 1]);
+    )
 
-  ystr("tag_set");
-  yajl_gen_map_open(gen);
-  ystr("old"); yajl_gen_integer(gen, mon->tagset[mon->seltags ^ 1]);
-  ystr("current"); yajl_gen_integer(gen, mon->tagset[mon->seltags]);
-  yajl_gen_map_close(gen);
+    YSTR("clients"); YMAP(
+      YSTR("selected"); YINT(mon->sel->win);
+      YSTR("stack"); YARR(
+        for (Client* c = mon->stack; c; c = c->snext)
+          YINT(c->win);
+      )
+      YSTR("all"); YARR(
+        for (Client* c = mon->clients; c; c = c->snext)
+          YINT(c->win);
+      )
+    )
 
-  ystr("layout");
-  yajl_gen_map_open(gen);
-  ystr("old_address");
-  yajl_gen_integer(gen, (uintptr_t)mon->lt[mon->sellt ^ 1]);
-  ystr("current_address");
-  yajl_gen_integer(gen, (uintptr_t)mon->lt[mon->sellt]);
-  yajl_gen_map_close(gen);
+    YSTR("layout"); YMAP(
+      YSTR("symbol"); YMAP(
+        YSTR("current"); YSTR(mon->ltsymbol);
+        YSTR("old"); YSTR(mon->lastltsymbol);
+      )
+      YSTR("address"); YMAP(
+        YSTR("current"); YINT((uintptr_t)mon->lt[mon->sellt]);
+        YSTR("old"); YINT((uintptr_t)mon->lt[mon->sellt ^ 1]);
+      )
+    )
 
-  ystr("selected_client"); yajl_gen_integer(gen, mon->sel->win);
-
-  ystr("stack");
-  yajl_gen_array_open(gen);
-  for (Client* c = mon->stack; c; c = c->snext)
-    yajl_gen_integer(gen, c->win);
-  yajl_gen_array_close(gen);
-
-  ystr("clients");
-  yajl_gen_array_open(gen);
-  for (Client* c = mon->clients; c; c = c->snext)
-    yajl_gen_integer(gen, c->win);
-  yajl_gen_array_close(gen);
-
-  yajl_gen_map_close(gen);
+    YSTR("bar"); YMAP(
+      YSTR("y"); YINT(mon->by);
+      YSTR("is_shown"); YBOOL(mon->showbar);
+      YSTR("is_top"); YBOOL(mon->topbar);
+      YSTR("window_id"); YINT(mon->barwin);
+    )
+  )
 
   return 0;
 }
@@ -144,18 +145,14 @@ dump_monitor(yajl_gen gen, Monitor *mon)
 int
 dump_layouts(yajl_gen gen, const Layout layouts[], const int layouts_len)
 {
-  yajl_gen_array_open(gen);
-
-  for (int i = 0; i < layouts_len; i++) {
-    yajl_gen_map_open(gen);
-    ystr("layout_symbol");
-    ystr(layouts[i].symbol);
-    ystr("layout_address");
-    yajl_gen_integer(gen, (uintptr_t)(layouts + i));
-    yajl_gen_map_close(gen);
-  }
-
-  yajl_gen_array_close(gen);
+  YARR(
+    for (int i = 0; i < layouts_len; i++) {
+      YMAP(
+        YSTR("symbol"); YSTR(layouts[i].symbol);
+        YSTR("address"); YINT((uintptr_t)(layouts + i));
+      )
+    }
+  )
 
   return 0;
 }
@@ -163,11 +160,11 @@ dump_layouts(yajl_gen gen, const Layout layouts[], const int layouts_len)
 int
 dump_tag_state(yajl_gen gen, TagState state)
 {
-  yajl_gen_map_open(gen);
-  ystr("selected"); yajl_gen_integer(gen, state.selected);
-  ystr("occupied"); yajl_gen_integer(gen, state.occupied);
-  ystr("urgent"); yajl_gen_integer(gen, state.urgent);
-  yajl_gen_map_close(gen);
+  YMAP(
+    YSTR("selected"); YINT(state.selected);
+    YSTR("occupied"); YINT(state.occupied);
+    YSTR("urgent"); YINT(state.urgent);
+  )
 
   return 0;
 }
@@ -176,20 +173,13 @@ int
 dump_tag_event(yajl_gen gen, int mon_num, TagState old_state,
         TagState new_state)
 {
-  yajl_gen_map_open(gen);
-
-  ystr("tag_change_event");
-  yajl_gen_map_open(gen);
-
-  ystr("monitor_number"); yajl_gen_integer(gen, mon_num);
-
-  ystr("old"); dump_tag_state(gen, old_state);
-
-  ystr("new"); dump_tag_state(gen, new_state);
-
-  yajl_gen_map_close(gen);
-
-  yajl_gen_map_close(gen);
+  YMAP(
+    YSTR("tag_change_event"); YMAP(
+      YSTR("monitor_number"); YINT(mon_num);
+      YSTR("old_state"); dump_tag_state(gen, old_state);
+      YSTR("new_state"); dump_tag_state(gen, new_state);
+    )
+  )
 
   return 0;
 }
@@ -198,28 +188,13 @@ int
 dump_client_change_event(yajl_gen gen, Client *old_client, Client *new_client,
   int mon_num)
 {
-  yajl_gen_map_open(gen);
-
-  ystr("selected_client_change_event");
-  yajl_gen_map_open(gen);
-
-  ystr("moniter_number"); yajl_gen_integer(gen, mon_num);
-
-  ystr("old");
-  if (old_client != NULL)
-    yajl_gen_integer(gen, old_client->win);
-  else
-    yajl_gen_null(gen);
-
-  ystr("new");
-  if (new_client != NULL)
-    yajl_gen_integer(gen, new_client->win);
-  else
-    yajl_gen_null(gen);
-
-  yajl_gen_map_close(gen);
-
-  yajl_gen_map_close(gen);
+  YMAP(
+    YSTR("selected_client_change_event"); YMAP(
+      YSTR("moniter_number"); YINT(mon_num);
+      YSTR("old_win_id"); old_client == NULL ? YNULL() : YINT(old_client->win);
+      YSTR("new_win_id"); new_client == NULL ? YNULL() : YINT(new_client->win);
+    )
+  )
 
   return 0;
 }
@@ -229,30 +204,15 @@ dump_layout_change_event(yajl_gen gen, const int mon_num,
     const char *old_symbol, const Layout *old_layout, const char* new_symbol,
     const Layout *new_layout)
 {
-  yajl_gen_map_open(gen);
-
-  ystr("layout_change_event");
-  yajl_gen_map_open(gen);
-
-  ystr("monitor_number"); yajl_gen_integer(gen, mon_num);
-
-  ystr("old"); yajl_gen_map_open(gen);
-
-  ystr("symbol"); ystr(old_symbol);
-  ystr("address"); yajl_gen_integer(gen, (uintptr_t)old_layout);
-
-  yajl_gen_map_close(gen);
-
-  ystr("new"); yajl_gen_map_open(gen);
-
-  ystr("symbol"); ystr(new_symbol);
-  ystr("address"); yajl_gen_integer(gen, (uintptr_t)new_layout);
-
-  yajl_gen_map_close(gen);
-
-  yajl_gen_map_close(gen);
-
-  yajl_gen_map_close(gen);
+  YMAP(
+    YSTR("layout_change_event"); YMAP(
+      YSTR("monitor_number"); YINT(mon_num);
+      YSTR("old_symbol"); YSTR(old_symbol);
+      YSTR("old_address"); YINT((uintptr_t)old_layout);
+      YSTR("new_symbol"); YSTR(new_symbol);
+      YSTR("new_address"); YINT((uintptr_t)new_layout);
+    )
+  )
 
   return 0;
 }
@@ -260,12 +220,10 @@ dump_layout_change_event(yajl_gen gen, const int mon_num,
 int
 dump_error_message(yajl_gen gen, const char *reason)
 {
-  yajl_gen_map_open(gen);
-
-  ystr("result"); ystr("error");
-  ystr("reason"); ystr(reason);
-
-  yajl_gen_map_close(gen);
+  YMAP(
+    YSTR("result"); YSTR("error");
+    YSTR("reason"); YSTR(reason);
+  )
 
   return 0;
 }

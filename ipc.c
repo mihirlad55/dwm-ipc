@@ -641,12 +641,10 @@ ipc_get_monitors(IPCClient *c, Monitor *mons)
 {
   yajl_gen gen;
   ipc_reply_init_message(&gen);
-  yajl_gen_array_open(gen);
-
-  for (Monitor *mon = mons; mon; mon = mon->next)
-    dump_monitor(gen, mon);
-
-  yajl_gen_array_close(gen);
+  YARR(
+    for (Monitor *mon = mons; mon; mon = mon->next)
+      dump_monitor(gen, mon);
+  )
 
   ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_MONITORS);
 }
