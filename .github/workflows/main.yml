@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       patch-name: ${{ steps.gen-name.outputs.patch-name }}
+      update-patch-name: ${{ steps.gen-name.outputs.update-patch-name }}
+      update-notes: ${{ steps.gen-name.outputs.update-notes }}
+      last-tag: ${{ steps.gen-name.outputs.last-tag }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -28,6 +31,14 @@ jobs:
           patch_hash="$(git rev-parse --short unpatched)"
           echo "::set-output name=patch-name::dwm-ipc-${patch_date}-${patch_hash}.diff"
         fi
+
+        last_tag="$(git tag --sort=committerdate | grep 'v' | tail -n2 | head -n1)"
+        echo "::set-output name=last-tag::${last_tag}"
+        echo "::set-output name=update-patch-name::dwm-ipc-${last_tag}-to-${tag}.diff"
+        update_notes="$(git tag \"${NEW_TAG}\" -n1 --format=%\(body\))"
+        echo "::set-output name=update-notes::${update_notes}"
+      env:
+        NEW_TAG: ${{ github.ref }}
 
   build:
     runs-on: ubuntu-latest
@@ -102,6 +113,31 @@ jobs:
       env:
         PATCH_NAME: ${{ needs.gen-patch-name.outputs.patch-name }}
 
+    - name: Checkout last tag
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ needs.gen-patch-name.outputs.last-tag }}
+
+    - name: Create clean temporary branch 2
+      run: git checkout -B temp2
+
+    - name: Squash master into branch temp2
+      run: git merge --squash origin/master
+
+    - name: Make update patch commit
+      run: echo "$COMMIT_MESSAGE" | git commit -F -
+      env:
+        COMMIT_MESSAGE: |
+            Update patch from ${{ needs.gen-patch-name.outputs.last-tag }} to ${{ github.ref }}
+
+            ${{ needs.gen-patch-name.outputs.patch-notes }}
+
+    - name: Generate update patch
+      run: git format-patch --stdout HEAD^ ':(exclude).github' ':(exclude)README' ':(exclude)README.md' > "$UPDATE_PATCH_NAME"
+      env:
+        LAST_TAG: ${{ needs.gen-patch-name.outputs.last-tag }}
+        UPDATE_PATCH_NAME: ${{ needs.gen-patch-name.outputs.update-notes }}
+
     - name: Create release
       id: create_release
       uses: actions/create-release@v1
@@ -124,7 +160,23 @@ jobs:
         asset_name: ${{ needs.gen-patch-name.outputs.patch-name }}
         asset_content_type: text/plain
 
+    - name: Upload update patch asset
+      id: upload_update_release_asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ github.workspace }}/${{ needs.gen-patch-name.outputs.update-patch-name }}
+        asset_name: ${{ needs.gen-patch-name.outputs.update-patch-name }}
+        asset_content_type: text/plain
+
     - uses: actions/upload-artifact@v2
       with:
         name: ${{ needs.gen-patch-name.outputs.patch-name }}
         path: ${{ github.workspace }}/${{ needs.gen-patch-name.outputs.patch-name }}
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ${{ needs.gen-patch-name.outputs.update-patch-name }}
+        path: ${{ github.workspace }}/${{ needs.gen-patch-name.outputs.update-patch-name }}
