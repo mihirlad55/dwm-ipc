@@ -58,3 +58,8 @@ message types listed above. The program can be used to run commands, query dwm
 for information, and listen for events. This program is particularly useful for
 creating custom shell scripts to control dwm.
 
+
+## Related Projects
+See [dwmipcpp](https://github.com/mihirlad55/dwmipcpp)
+
+See [polybar dwm module \[WIP\]](https://github.com/mihirlad55/polybar)
