@@ -108,6 +108,8 @@ dump_monitor(yajl_gen gen, Monitor *mon)
       YSTR("old"); YINT(mon->tagset[mon->seltags ^ 1]);
     )
 
+    YSTR("tag_state"); dump_tag_state(gen, mon->tagstate);
+
     YSTR("clients"); YMAP(
       YSTR("selected"); YINT(mon->sel->win);
       YSTR("stack"); YARR(
