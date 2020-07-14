@@ -28,7 +28,8 @@ typedef enum IPCMessageType {
 typedef enum IPCEvent {
   IPC_EVENT_TAG_CHANGE = 1,
   IPC_EVENT_SELECTED_CLIENT_CHANGE = 2,
-  IPC_EVENT_LAYOUT_CHANGE = 4
+  IPC_EVENT_LAYOUT_CHANGE = 4,
+  IPC_EVENT_SELECTED_MONITOR_CHANGE = 8
 } IPCEvent;
 
 typedef enum IPCSubscriptionAction {
@@ -227,15 +228,27 @@ void ipc_selected_client_change_event(const int mon_num, Client *old_client,
  * @param const Layout *new_layout Address to the new Layout
  */
 void ipc_layout_change_event(const int mon_num, const char *old_symbol,
-    const Layout *old_layout, const char *new_symbol, const Layout *new_layout);
+                             const Layout *old_layout, const char *new_symbol,
+                             const Layout *new_layout);
+
+/**
+ * Send a monitor_change_event to all subscribers. Should be called only
+ * when there has been a selected monitor change.
+ *
+ * @param int last_mon_num The index of the previously selected monitor
+ * @param int new_mon_num The index of the newly selected monitor
+ */
+void ipc_monitor_change_event(const int last_mon_num, const int new_mon_num);
 
 /**
  * Check to see if an event has occured and call the *_change_event functions
  * accordingly
  *
- * @param Monitor *mons Pointer to linked list of monitors
+ * @param Monitor *mons Address of Monitor pointing to start of linked list
+ * @param Monitor **lastselmon Address of pointer to previously selected monitor
+ * @param Monitor *selmon Address of selected Monitor
  */
-void ipc_send_events(Monitor *mons);
+void ipc_send_events(Monitor *mons, Monitor **lastselmon, Monitor *selmon);
 
 /**
  * Handle an epoll event caused by a registered IPC client. Read, process, and
@@ -244,7 +257,9 @@ void ipc_send_events(Monitor *mons);
  * EPOLLHUP.
  *
  * @param struct epoll_event *ev Associated epoll event returned by epoll_wait
- * @param Monitor *mons Address of linked list of monitors
+ * @param Monitor *mons Address of Monitor pointing to start of linked list
+ * @param Monitor *selmon Address of selected Monitor
+ * @param Monitor **lastselmon Address of pointer to previously selected monitor
  * @param const char *tags[] Array of tag names
  * @param const int tags_len Length of tags array
  * @param const Layout *layouts Array of available layouts
@@ -254,6 +269,7 @@ void ipc_send_events(Monitor *mons);
  * or handling incoming messages or unhandled epoll event.
  */
 int ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
+                                  Monitor **lastselmon, Monitor *selmon,
                                   const char *tags[], const int tags_len,
                                   const Layout *layouts, const int layouts_len);
 

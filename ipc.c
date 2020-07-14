@@ -464,6 +464,8 @@ ipc_event_stoi(const char *subscription, IPCEvent *event)
     *event = IPC_EVENT_SELECTED_CLIENT_CHANGE;
   else if (strcmp(subscription, "layout_change_event") == 0)
     *event = IPC_EVENT_LAYOUT_CHANGE;
+  else if (strcmp(subscription, "selected_monitor_change_event") == 0)
+    *event = IPC_EVENT_SELECTED_MONITOR_CHANGE;
   else
     return -1;
   return 0;
@@ -1045,7 +1047,16 @@ ipc_layout_change_event(const int mon_num, const char *old_symbol,
 }
 
 void
-ipc_send_events(Monitor *mons)
+ipc_monitor_change_event(const int last_mon_num, const int new_mon_num)
+{
+  yajl_gen gen;
+  ipc_event_init_message(&gen);
+  dump_monitor_change_event(gen, last_mon_num, new_mon_num);
+  ipc_event_prepare_send_message(gen, IPC_EVENT_SELECTED_MONITOR_CHANGE);
+}
+
+void
+ipc_send_events(Monitor *mons, Monitor **lastselmon, Monitor *selmon)
 {
   for (Monitor *m = mons; m; m = m->next) {
     unsigned int urg = 0, occ = 0, tagset = 0;
@@ -1077,13 +1088,19 @@ ipc_send_events(Monitor *mons)
       strcpy(m->lastltsymbol, m->ltsymbol);
       m->lastlt = m->lt[m->sellt];
     }
+
+    if (*lastselmon != selmon) {
+      if (*lastselmon != NULL)
+        ipc_monitor_change_event((*lastselmon)->num, selmon->num);
+      *lastselmon = selmon;
+    }
   }
 }
 
 int
 ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
-    const char *tags[], const int tags_len, const Layout *layouts,
-    const int layouts_len)
+    Monitor **lastselmon, Monitor *selmon, const char *tags[],
+    const int tags_len, const Layout *layouts, const int layouts_len)
 {
   int fd = ev->data.fd;
   IPCClient *c = ipc_get_client(fd);
@@ -1112,7 +1129,7 @@ ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
     else if (msg_type == IPC_TYPE_RUN_COMMAND) {
       if (ipc_run_command(c, msg) < 0)
         return -1;
-      ipc_send_events(mons);
+      ipc_send_events(mons, lastselmon, selmon);
     } else if (msg_type == IPC_TYPE_GET_DWM_CLIENT) {
       if (ipc_get_dwm_client(c, msg, mons) < 0)
         return -1;

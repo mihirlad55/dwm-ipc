@@ -224,7 +224,7 @@ static Cur *cursor[CurLast];
 static Clr **scheme;
 static Display *dpy;
 static Drw *drw;
-static Monitor *mons, *selmon;
+static Monitor *mons, *selmon, *lastselmon;
 static Window root, wmcheckwin;
 
 /* configuration, allows nested code to access above variables */
@@ -937,7 +937,7 @@ handlexevent(struct epoll_event *ev)
       XNextEvent(dpy, &ev);
       if (handler[ev.type]) {
         handler[ev.type](&ev); /* call handler */
-        ipc_send_events(mons);
+        ipc_send_events(mons, &lastselmon, selmon);
       }
     }
   } else if (ev-> events & EPOLLHUP) {
@@ -1377,8 +1377,8 @@ run(void)
       } else if (event_fd == ipc_get_sock_fd()) {
         ipc_handle_socket_epoll_event(events + i);
       } else if (ipc_is_client_registered(event_fd)){
-        if (ipc_handle_client_epoll_event(events + i, mons, tags, LENGTH(tags),
-              layouts, LENGTH(layouts)) < 0) {
+        if (ipc_handle_client_epoll_event(events + i, mons, &lastselmon, selmon,
+              tags, LENGTH(tags), layouts, LENGTH(layouts)) < 0) {
           fprintf(stderr, "Error handling IPC event on fd %d\n", event_fd);
         }
       } else {

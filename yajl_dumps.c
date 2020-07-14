@@ -218,6 +218,19 @@ dump_layout_change_event(yajl_gen gen, const int mon_num,
 }
 
 int
+dump_monitor_change_event(yajl_gen gen, const int last_mon_num,
+    const int new_mon_num)
+{
+  YMAP(
+    YSTR("monitor_change_event"); YMAP(
+      YSTR("old_monitor_number"); YINT(last_mon_num);
+      YSTR("new_monitor_number"); YINT(new_mon_num);
+    )
+  )
+  return 0;
+}
+
+int
 dump_error_message(yajl_gen gen, const char *reason)
 {
   YMAP(
