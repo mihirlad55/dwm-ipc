@@ -52,7 +52,7 @@ struct Monitor {
   unsigned int seltags;
   unsigned int sellt;
   unsigned int tagset[2];
-  TagState oldtagstate;
+  TagState tagstate;
   int showbar;
   int topbar;
   Client *clients;

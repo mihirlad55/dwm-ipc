@@ -1071,9 +1071,9 @@ ipc_send_events(Monitor *mons, Monitor **lastselmon, Monitor *selmon)
 
     TagState new_state = { .selected = tagset, .occupied = occ, .urgent = urg };
 
-    if (memcmp(&m->oldtagstate, &new_state, sizeof(TagState)) != 0) {
-      ipc_tag_change_event(m->num, m->oldtagstate, new_state);
-      m->oldtagstate = new_state;
+    if (memcmp(&m->tagstate, &new_state, sizeof(TagState)) != 0) {
+      ipc_tag_change_event(m->num, m->tagstate, new_state);
+      m->tagstate = new_state;
     }
 
     if (m->lastsel != m->sel) {
