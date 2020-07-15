@@ -42,10 +42,8 @@
 #endif /* XINERAMA */
 #include <X11/Xft/Xft.h>
 
-#include "types.h"
 #include "drw.h"
 #include "util.h"
-#include "ipc.h"
 
 /* macros */
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
@@ -70,6 +68,23 @@ enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms *
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
 
+#ifndef VERSION
+#include "types.h"
+#else
+typedef struct TagState TagState;
+struct TagState {
+  int selected;
+  int occupied;
+  int urgent;
+};
+
+typedef union {
+	long i;
+	unsigned long ui;
+	float f;
+	const void *v;
+} Arg;
+
 typedef struct {
 	unsigned int click;
 	unsigned int mask;
@@ -77,6 +92,23 @@ typedef struct {
 	void (*func)(const Arg *arg);
 	const Arg arg;
 } Button;
+
+typedef struct Monitor Monitor;
+typedef struct Client Client;
+struct Client {
+	char name[256];
+	float mina, maxa;
+	int x, y, w, h;
+	int oldx, oldy, oldw, oldh;
+	int basew, baseh, incw, inch, maxw, maxh, minw, minh;
+	int bw, oldbw;
+	unsigned int tags;
+	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
+	Client *next;
+	Client *snext;
+	Monitor *mon;
+	Window win;
+};
 
 typedef struct {
 	unsigned int mod;
@@ -86,6 +118,37 @@ typedef struct {
 } Key;
 
 typedef struct {
+	const char *symbol;
+	void (*arrange)(Monitor *);
+} Layout;
+
+
+struct Monitor {
+	char ltsymbol[16];
+	char lastltsymbol[16];
+	float mfact;
+	int nmaster;
+	int num;
+	int by;               /* bar geometry */
+	int mx, my, mw, mh;   /* screen size */
+	int wx, wy, ww, wh;   /* window area  */
+	unsigned int seltags;
+	unsigned int sellt;
+	unsigned int tagset[2];
+	TagState tagstate;
+	int showbar;
+	int topbar;
+	Client *clients;
+	Client *sel;
+	Client *lastsel;
+	Client *stack;
+	Monitor *next;
+	Window barwin;
+	const Layout *lt[2];
+	const Layout *lastlt;
+};
+
+typedef struct {
 	const char *class;
 	const char *instance;
 	const char *title;
@@ -93,6 +156,8 @@ typedef struct {
 	int isfloating;
 	int monitor;
 } Rule;
+
+#endif // VERSION
 
 /* function declarations */
 static void applyrules(Client *c);
@@ -224,11 +289,19 @@ static Cur *cursor[CurLast];
 static Clr **scheme;
 static Display *dpy;
 static Drw *drw;
-static Monitor *mons, *selmon;
+static Monitor *mons, *selmon, *lastselmon;
 static Window root, wmcheckwin;
+
+#include "ipc.h"
 
 /* configuration, allows nested code to access above variables */
 #include "config.h"
+
+#ifdef VERSION
+#include "IPCClient.c"
+#include "yajl_dumps.c"
+#include "ipc.c"
+#endif
 
 /* compile-time check if all tags fit into an unsigned int bit array. */
 struct NumTags { char limitexceeded[LENGTH(tags) > 31 ? -1 : 1]; };
@@ -937,7 +1010,7 @@ handlexevent(struct epoll_event *ev)
       XNextEvent(dpy, &ev);
       if (handler[ev.type]) {
         handler[ev.type](&ev); /* call handler */
-        ipc_send_events(mons);
+        ipc_send_events(mons, &lastselmon, selmon);
       }
     }
   } else if (ev-> events & EPOLLHUP) {
@@ -1377,8 +1450,8 @@ run(void)
       } else if (event_fd == ipc_get_sock_fd()) {
         ipc_handle_socket_epoll_event(events + i);
       } else if (ipc_is_client_registered(event_fd)){
-        if (ipc_handle_client_epoll_event(events + i, mons, tags, LENGTH(tags),
-              layouts, LENGTH(layouts)) < 0) {
+        if (ipc_handle_client_epoll_event(events + i, mons, &lastselmon, selmon,
+              tags, LENGTH(tags), layouts, LENGTH(layouts)) < 0) {
           fprintf(stderr, "Error handling IPC event on fd %d\n", event_fd);
         }
       } else {

@@ -1,7 +1,9 @@
 #ifndef YAJL_DUMPS_H_
 #define YAJL_DUMPS_H_
 
+#ifndef VERSION
 #include "types.h"
+#endif
 #include <string.h>
 #include <yajl/yajl_gen.h>
 
@@ -32,6 +34,9 @@ int dump_client_change_event(yajl_gen gen, Client *old_client,
 int dump_layout_change_event(yajl_gen gen, const int mon_num,
                              const char *old_symbol, const Layout *old_layout,
                              const char *new_symbol, const Layout *new_layout);
+
+int dump_monitor_change_event(yajl_gen gen, const int last_mon_num,
+                              const int new_mon_num);
 
 int dump_error_message(yajl_gen gen, const char *reason);
 
