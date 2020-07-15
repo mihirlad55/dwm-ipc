@@ -24,10 +24,6 @@ are minimal deletions.
 ### Tips
 - Apply the patch last after all your other patches to avoid merge conflicts
 
-- The main deletions in dwm.c are the run function and the type definitions.
-  The types are moved to types.h, be careful with accidentally removing
-  modifications to the type defintions caused by other patches.
-
 
 ## Patch Compatability
 At the moment, the patch will only work on systems that implement epoll and is
