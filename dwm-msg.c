@@ -19,6 +19,7 @@
 #define IPC_EVENT_TAG_CHANGE "tag_change_event"
 #define IPC_EVENT_SELECTED_CLIENT_CHANGE "selected_client_change_event"
 #define IPC_EVENT_LAYOUT_CHANGE "layout_change_event"
+#define IPC_EVENT_SELECTED_MONITOR_CHANGE "selected_monitor_change_event"
 
 #define ystr(str) yajl_gen_string(gen, (unsigned char *)str, strlen(str))
 
@@ -429,7 +430,8 @@ print_usage(const char *name)
   puts("  subscribe [events...]           Subscribe to specified events");
   puts("                                  Options: "IPC_EVENT_TAG_CHANGE",");
   puts("                                  "IPC_EVENT_LAYOUT_CHANGE",");
-  puts("                                  "IPC_EVENT_SELECTED_CLIENT_CHANGE);
+  puts("                                  "IPC_EVENT_SELECTED_CLIENT_CHANGE",");
+  puts("                                  "IPC_EVENT_SELECTED_MONITOR_CHANGE);
   puts("");
   puts("  help                            Display this message");
   puts("");

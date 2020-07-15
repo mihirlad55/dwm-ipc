@@ -24,10 +24,6 @@ are minimal deletions.
 ### Tips
 - Apply the patch last after all your other patches to avoid merge conflicts
 
-- The main deletions in dwm.c are the run function and the type definitions.
-  The types are moved to types.h, be careful with accidentally removing
-  modifications to the type defintions caused by other patches.
-
 
 ## Patch Compatability
 At the moment, the patch will only work on systems that implement epoll and is
@@ -46,7 +42,8 @@ At the moment the IPC patch supports the following message requests:
 
 - Get the properties of a specific dwm client
 
-- Subscribe to tag change, selected client change, and layout change events
+- Subscribe to tag change, selected client change, layout change events, and
+  selected monitor change events.
 
 For more info on the IPC protocol implementation, visit the
 [wiki](https://github.com/mihirlad55/dwm-ipc/wiki/).
