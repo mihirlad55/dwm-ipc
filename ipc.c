@@ -1060,7 +1060,7 @@ ipc_send_events(Monitor *mons, Monitor **lastselmon, Monitor *selmon)
   for (Monitor *m = mons; m; m = m->next) {
     unsigned int urg = 0, occ = 0, tagset = 0;
 
-    for (Client *c = mons->clients; c; c = c->next) {
+    for (Client *c = m->clients; c; c = c->next) {
       occ |= c->tags;
 
       if (c->isurgent)
