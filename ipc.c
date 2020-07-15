@@ -12,7 +12,6 @@
 
 #include "ipc.h"
 #include "util.h"
-#include "IPCClient.h"
 #include "yajl_dumps.h"
 
 static struct sockaddr_un sockaddr;

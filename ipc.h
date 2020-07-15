@@ -1,8 +1,11 @@
 #ifndef IPC_H_
 #define IPC_H_
 
-#include "IPCClient.h"
+#ifndef VERSION
 #include "types.h"
+#endif
+
+#include "IPCClient.h"
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <yajl/yajl_gen.h>
