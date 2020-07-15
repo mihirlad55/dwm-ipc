@@ -42,7 +42,8 @@ At the moment the IPC patch supports the following message requests:
 
 - Get the properties of a specific dwm client
 
-- Subscribe to tag change, selected client change, and layout change events
+- Subscribe to tag change, selected client change, layout change events, and
+  selected monitor change events.
 
 For more info on the IPC protocol implementation, visit the
 [wiki](https://github.com/mihirlad55/dwm-ipc/wiki/).
