@@ -89,12 +89,13 @@ dump_client(yajl_gen gen, Client *c)
 }
 
 int
-dump_monitor(yajl_gen gen, Monitor *mon)
+dump_monitor(yajl_gen gen, Monitor *mon, int is_selected)
 {
   YMAP(
     YSTR("master_factor"); YDOUBLE(mon->mfact);
     YSTR("num_master"); YINT(mon->nmaster);
     YSTR("num"); YINT(mon->num);
+    YSTR("is_selected"); YBOOL(is_selected);
 
     YSTR("monitor_geometry"); YMAP(
       YSTR("x"); YINT(mon->mx);
@@ -152,7 +153,7 @@ dump_monitor(yajl_gen gen, Monitor *mon)
 }
 
 int
-dump_monitors(yajl_gen gen, Monitor *mons)
+dump_monitors(yajl_gen gen, Monitor *mons, Monitor *selmon)
 {
   YARR(
     for (Monitor *mon = mons; mon; mon = mon->next) {

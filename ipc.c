@@ -639,11 +639,11 @@ ipc_run_command(IPCClient *ipc_client, char *msg)
  * prepares a reply with the properties of all of the monitors in JSON.
  */
 static void
-ipc_get_monitors(IPCClient *c, Monitor *mons)
+ipc_get_monitors(IPCClient *c, Monitor *mons, Monitor *selmon)
 {
   yajl_gen gen;
   ipc_reply_init_message(&gen);
-  dump_monitors(gen, mons);
+  dump_monitors(gen, mons, selmon);
 
   ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_MONITORS);
 }
@@ -1121,7 +1121,7 @@ ipc_handle_client_epoll_event(struct epoll_event *ev, Monitor *mons,
       return -1;
 
     if (msg_type == IPC_TYPE_GET_MONITORS)
-      ipc_get_monitors(c, mons);
+      ipc_get_monitors(c, mons, selmon);
     else if (msg_type == IPC_TYPE_GET_TAGS)
       ipc_get_tags(c, tags, tags_len);
     else if (msg_type == IPC_TYPE_GET_LAYOUTS)

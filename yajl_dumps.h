@@ -21,9 +21,9 @@ int dump_tags(yajl_gen gen, const char *tags[], int tags_len);
 
 int dump_client(yajl_gen gen, Client *c);
 
-int dump_monitor(yajl_gen gen, Monitor *mon);
+int dump_monitor(yajl_gen gen, Monitor *mon, int is_selected);
 
-int dump_monitors(yajl_gen gen, Monitor *mons);
+int dump_monitors(yajl_gen gen, Monitor *mons, Monitor *selmon);
 
 int dump_layouts(yajl_gen gen, const Layout layouts[], const int layouts_len);
 
