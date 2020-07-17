@@ -643,10 +643,7 @@ ipc_get_monitors(IPCClient *c, Monitor *mons)
 {
   yajl_gen gen;
   ipc_reply_init_message(&gen);
-  YARR(
-    for (Monitor *mon = mons; mon; mon = mon->next)
-      dump_monitor(gen, mon);
-  )
+  dump_monitors(gen, mons);
 
   ipc_reply_prepare_send_message(gen, c, IPC_TYPE_GET_MONITORS);
 }

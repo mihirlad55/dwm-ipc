@@ -15,11 +15,15 @@
 #define YARR(body) { yajl_gen_array_open(gen); body yajl_gen_array_close(gen); }
 #define YMAP(body) { yajl_gen_map_open(gen); body yajl_gen_map_close(gen); }
 
+int dump_tag(yajl_gen gen, const char *name, const int tag_mask);
+
 int dump_tags(yajl_gen gen, const char *tags[], int tags_len);
 
 int dump_client(yajl_gen gen, Client *c);
 
 int dump_monitor(yajl_gen gen, Monitor *mon);
+
+int dump_monitors(yajl_gen gen, Monitor *mons);
 
 int dump_layouts(yajl_gen gen, const Layout layouts[], const int layouts_len);
 
