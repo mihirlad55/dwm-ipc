@@ -784,13 +784,8 @@ ipc_cleanup()
   IPCClient *c = ipc_clients;
   // Free clients and their buffers
   while (c) {
-    IPCClient *next = c->next;
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &c->event);
-
-    if (c->buffer_size != 0) free(c->buffer);
-
-    free(c);
-    c = next;
+    ipc_drop_client(c);
+    c = ipc_clients;
   }
 
   // Stop waking up for socket events
