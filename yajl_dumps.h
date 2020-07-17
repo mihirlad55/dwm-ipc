@@ -32,15 +32,15 @@ int dump_tag_state(yajl_gen gen, TagState state);
 int dump_tag_event(yajl_gen gen, int mon_num, TagState old_state,
                    TagState new_state);
 
-int dump_client_change_event(yajl_gen gen, Client *old_client,
-                             Client *new_client, int mon_num);
+int dump_client_focus_change_event(yajl_gen gen, Client *old_client,
+                                   Client *new_client, int mon_num);
 
 int dump_layout_change_event(yajl_gen gen, const int mon_num,
                              const char *old_symbol, const Layout *old_layout,
                              const char *new_symbol, const Layout *new_layout);
 
-int dump_monitor_change_event(yajl_gen gen, const int last_mon_num,
-                              const int new_mon_num);
+int dump_monitor_focus_change_event(yajl_gen gen, const int last_mon_num,
+                                    const int new_mon_num);
 
 int dump_error_message(yajl_gen gen, const char *reason);
 

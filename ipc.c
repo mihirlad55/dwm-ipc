@@ -460,12 +460,12 @@ ipc_event_stoi(const char *subscription, IPCEvent *event)
 {
   if (strcmp(subscription, "tag_change_event") == 0)
     *event = IPC_EVENT_TAG_CHANGE;
-  else if (strcmp(subscription, "selected_client_change_event") == 0)
-    *event = IPC_EVENT_SELECTED_CLIENT_CHANGE;
+  else if (strcmp(subscription, "client_focus_change_event") == 0)
+    *event = IPC_EVENT_CLIENT_FOCUS_CHANGE;
   else if (strcmp(subscription, "layout_change_event") == 0)
     *event = IPC_EVENT_LAYOUT_CHANGE;
-  else if (strcmp(subscription, "selected_monitor_change_event") == 0)
-    *event = IPC_EVENT_SELECTED_MONITOR_CHANGE;
+  else if (strcmp(subscription, "monitor_focus_change_event") == 0)
+    *event = IPC_EVENT_MONITOR_FOCUS_CHANGE;
   else
     return -1;
   return 0;
@@ -1026,13 +1026,13 @@ ipc_tag_change_event(int mon_num, TagState old_state, TagState new_state)
 }
 
 void
-ipc_selected_client_change_event(int mon_num, Client *old_client,
+ipc_client_focus_change_event(int mon_num, Client *old_client,
     Client *new_client)
 {
   yajl_gen gen;
   ipc_event_init_message(&gen);
-  dump_client_change_event(gen, old_client, new_client, mon_num);
-  ipc_event_prepare_send_message(gen, IPC_EVENT_SELECTED_CLIENT_CHANGE);
+  dump_client_focus_change_event(gen, old_client, new_client, mon_num);
+  ipc_event_prepare_send_message(gen, IPC_EVENT_CLIENT_FOCUS_CHANGE);
 }
 
 void
@@ -1047,12 +1047,12 @@ ipc_layout_change_event(const int mon_num, const char *old_symbol,
 }
 
 void
-ipc_monitor_change_event(const int last_mon_num, const int new_mon_num)
+ipc_monitor_focus_change_event(const int last_mon_num, const int new_mon_num)
 {
   yajl_gen gen;
   ipc_event_init_message(&gen);
-  dump_monitor_change_event(gen, last_mon_num, new_mon_num);
-  ipc_event_prepare_send_message(gen, IPC_EVENT_SELECTED_MONITOR_CHANGE);
+  dump_monitor_focus_change_event(gen, last_mon_num, new_mon_num);
+  ipc_event_prepare_send_message(gen, IPC_EVENT_MONITOR_FOCUS_CHANGE);
 }
 
 void
@@ -1077,7 +1077,7 @@ ipc_send_events(Monitor *mons, Monitor **lastselmon, Monitor *selmon)
     }
 
     if (m->lastsel != m->sel) {
-      ipc_selected_client_change_event(m->num, m->lastsel, m->sel);
+      ipc_client_focus_change_event(m->num, m->lastsel, m->sel);
       m->lastsel = m->sel;
     }
 
@@ -1091,7 +1091,7 @@ ipc_send_events(Monitor *mons, Monitor **lastselmon, Monitor *selmon)
 
     if (*lastselmon != selmon) {
       if (*lastselmon != NULL)
-        ipc_monitor_change_event((*lastselmon)->num, selmon->num);
+        ipc_monitor_focus_change_event((*lastselmon)->num, selmon->num);
       *lastselmon = selmon;
     }
   }

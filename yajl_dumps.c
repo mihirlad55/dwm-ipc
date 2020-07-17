@@ -210,11 +210,11 @@ dump_tag_event(yajl_gen gen, int mon_num, TagState old_state,
 }
 
 int
-dump_client_change_event(yajl_gen gen, Client *old_client, Client *new_client,
-  int mon_num)
+dump_client_focus_change_event(yajl_gen gen, Client *old_client,
+    Client *new_client, int mon_num)
 {
   YMAP(
-    YSTR("selected_client_change_event"); YMAP(
+    YSTR("client_focus_change_event"); YMAP(
       YSTR("monitor_number"); YINT(mon_num);
       YSTR("old_win_id"); old_client == NULL ? YNULL() : YINT(old_client->win);
       YSTR("new_win_id"); new_client == NULL ? YNULL() : YINT(new_client->win);
@@ -243,11 +243,11 @@ dump_layout_change_event(yajl_gen gen, const int mon_num,
 }
 
 int
-dump_monitor_change_event(yajl_gen gen, const int last_mon_num,
+dump_monitor_focus_change_event(yajl_gen gen, const int last_mon_num,
     const int new_mon_num)
 {
   YMAP(
-    YSTR("selected_monitor_change_event"); YMAP(
+    YSTR("monitor_focus_change_event"); YMAP(
       YSTR("old_monitor_number"); YINT(last_mon_num);
       YSTR("new_monitor_number"); YINT(new_mon_num);
     )
