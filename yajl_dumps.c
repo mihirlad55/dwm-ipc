@@ -2,15 +2,22 @@
 #include <stdint.h>
 
 int
+dump_tag(yajl_gen gen, const char *name, const int tag_mask)
+{
+  YMAP(
+    YSTR("bit_mask"); YINT(tag_mask);
+    YSTR("name"); YSTR(name);
+  )
+
+  return 0;
+}
+
+int
 dump_tags(yajl_gen gen, const char *tags[], int tags_len)
 {
   YARR(
-    for (int i = 0; i < tags_len; i++) {
-      YMAP(
-        YSTR("bit_mask"); YINT(1 << i);
-        YSTR("name"); YSTR(tags[i]);
-      )
-    }
+    for (int i = 0; i < tags_len; i++)
+      dump_tag(gen, tags[i], 1 << i);
   )
 
   return 0;
@@ -82,12 +89,13 @@ dump_client(yajl_gen gen, Client *c)
 }
 
 int
-dump_monitor(yajl_gen gen, Monitor *mon)
+dump_monitor(yajl_gen gen, Monitor *mon, int is_selected)
 {
   YMAP(
     YSTR("master_factor"); YDOUBLE(mon->mfact);
     YSTR("num_master"); YINT(mon->nmaster);
     YSTR("num"); YINT(mon->num);
+    YSTR("is_selected"); YBOOL(is_selected);
 
     YSTR("monitor_geometry"); YMAP(
       YSTR("x"); YINT(mon->mx);
@@ -139,6 +147,21 @@ dump_monitor(yajl_gen gen, Monitor *mon)
       YSTR("is_top"); YBOOL(mon->topbar);
       YSTR("window_id"); YINT(mon->barwin);
     )
+  )
+
+  return 0;
+}
+
+int
+dump_monitors(yajl_gen gen, Monitor *mons, Monitor *selmon)
+{
+  YARR(
+    for (Monitor *mon = mons; mon; mon = mon->next) {
+      if (mon == selmon)
+        dump_monitor(gen, mon, 1);
+      else
+        dump_monitor(gen, mon, 0);
+    }
   )
 
   return 0;
