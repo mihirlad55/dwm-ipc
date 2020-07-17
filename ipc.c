@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -784,13 +785,8 @@ ipc_cleanup()
   IPCClient *c = ipc_clients;
   // Free clients and their buffers
   while (c) {
-    IPCClient *next = c->next;
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, c->fd, &c->event);
-
-    if (c->buffer_size != 0) free(c->buffer);
-
-    free(c);
-    c = next;
+    ipc_drop_client(c);
+    c = ipc_clients;
   }
 
   // Stop waking up for socket events
@@ -808,6 +804,7 @@ ipc_cleanup()
   unlink(sockaddr.sun_path);
 
   shutdown(sock_fd, SHUT_RDWR);
+  close(sock_fd);
 }
 
 int
@@ -846,6 +843,12 @@ ipc_accept_client()
     return -1;
   }
 
+  if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
+    shutdown(fd, SHUT_RDWR);
+    close(fd);
+    fputs("Failed to set flags on new client fd", stderr);
+  }
+
   IPCClient *nc = ipc_client_new(fd);
   if (nc == NULL) return -1;
 
@@ -865,6 +868,7 @@ int
 ipc_drop_client(IPCClient *c)
 {
   int fd = c->fd;
+  shutdown(fd, SHUT_RDWR);
   int res = close(fd);
 
   if (res == 0) {
