@@ -803,6 +803,7 @@ ipc_cleanup()
   unlink(sockaddr.sun_path);
 
   shutdown(sock_fd, SHUT_RDWR);
+  close(sock_fd);
 }
 
 int
@@ -860,6 +861,7 @@ int
 ipc_drop_client(IPCClient *c)
 {
   int fd = c->fd;
+  shutdown(fd, SHUT_RDWR);
   int res = close(fd);
 
   if (res == 0) {
