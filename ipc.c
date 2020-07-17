@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -840,6 +841,12 @@ ipc_accept_client()
   if (fd < 0 && errno != EINTR) {
     fputs("Failed to accept IPC connection from client", stderr);
     return -1;
+  }
+
+  if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
+    shutdown(fd, SHUT_RDWR);
+    close(fd);
+    fputs("Failed to set flags on new client fd", stderr);
   }
 
   IPCClient *nc = ipc_client_new(fd);
