@@ -192,7 +192,7 @@ dump_client_change_event(yajl_gen gen, Client *old_client, Client *new_client,
 {
   YMAP(
     YSTR("selected_client_change_event"); YMAP(
-      YSTR("moniter_number"); YINT(mon_num);
+      YSTR("monitor_number"); YINT(mon_num);
       YSTR("old_win_id"); old_client == NULL ? YNULL() : YINT(old_client->win);
       YSTR("new_win_id"); new_client == NULL ? YNULL() : YINT(new_client->win);
     )
