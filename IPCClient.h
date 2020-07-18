@@ -1,14 +1,14 @@
 #ifndef IPC_CLIENT_H_
 #define IPC_CLIENT_H_
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/epoll.h>
-#include <stdio.h>
 
 typedef struct IPCClient IPCClient;
 /**
- * This structure contains the details of an IPC Client and pointers for a linked
- * list
+ * This structure contains the details of an IPC Client and pointers for a
+ * linked list
  */
 struct IPCClient {
   int fd;
@@ -22,7 +22,7 @@ struct IPCClient {
   IPCClient *prev;
 };
 
-typedef IPCClient* IPCClientList;
+typedef IPCClient *IPCClientList;
 
 /**
  * Allocate memory for new IPCClient with the specified file descriptor and
@@ -32,7 +32,7 @@ typedef IPCClient* IPCClientList;
  *
  * @return Address to allocated IPCClient struct
  */
-IPCClient* ipc_client_new(int fd);
+IPCClient *ipc_client_new(int fd);
 
 /**
  * Add an IPC Client to the specified list
@@ -56,7 +56,6 @@ void ipc_list_remove_client(IPCClientList *list, IPCClient *c);
  * @param list List to remove the client from
  * @param fd File descriptor of the IPCClient
  */
-IPCClient* ipc_list_get_client(IPCClientList list, int fd);
+IPCClient *ipc_list_get_client(IPCClientList list, int fd);
 
-#endif // IPC_CLIENT_H_
-
+#endif  // IPC_CLIENT_H_

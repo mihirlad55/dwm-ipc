@@ -9,9 +9,10 @@
 #include <unistd.h>
 
 #define IPC_MAGIC "DWM-IPC"
-#define IPC_MAGIC_ARR                                                          \
-  { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
-#define IPC_MAGIC_LEN 7 // Not including null char
+// clang-format off
+#define IPC_MAGIC_ARR { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
+// clang-format on
+#define IPC_MAGIC_LEN 7  // Not including null char
 
 typedef enum IPCMessageType {
   IPC_TYPE_RUN_COMMAND = 0,
@@ -40,9 +41,10 @@ typedef struct dwm_ipc_header {
   uint8_t type;
 } __attribute((packed)) dwm_ipc_header_t;
 
-
-static int ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
-                            uint8_t **reply) {
+static int
+ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
+                 uint8_t **reply)
+{
   uint32_t read_bytes = 0;
   const int32_t to_read = sizeof(dwm_ipc_header_t);
   char header[to_read];
@@ -103,8 +105,7 @@ static int ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
     } else if (n == -1) {
       // TODO: Should we return and wait for another epoll event?
       // This would require saving the partial read in some way.
-      if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
-        continue;
+      if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
       free(*reply);
       return -1;
     }
@@ -115,7 +116,9 @@ static int ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
   return 0;
 }
 
-int main(int argc, char *argv[]) {
+int
+main(int argc, char *argv[])
+{
   struct sockaddr_un addr;
 
   int sock = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -138,16 +141,14 @@ int main(int argc, char *argv[]) {
     "  \"args\": [ 1 ]\n"
     "}";*/
   char *msg =
-    "{\n"
-    "  \"event\": \"layout_change_event\",\n"
-    "  \"action\": \"subscribe\"\n"
-    "}";
+      "{\n"
+      "  \"event\": \"layout_change_event\",\n"
+      "  \"action\": \"subscribe\"\n"
+      "}";
 
-  dwm_ipc_header_t msg_header = {
-    .magic = IPC_MAGIC_ARR,
-    .type = IPC_TYPE_SUBSCRIBE,
-    .size = strlen(msg) + 1
-  };
+  dwm_ipc_header_t msg_header = {.magic = IPC_MAGIC_ARR,
+                                 .type = IPC_TYPE_SUBSCRIBE,
+                                 .size = strlen(msg) + 1};
 
   uint8_t buffer[sizeof(dwm_ipc_header_t) + msg_header.size];
   memcpy(buffer, &msg_header, sizeof(dwm_ipc_header_t));
@@ -167,4 +168,3 @@ int main(int argc, char *argv[]) {
     printf("%s\n", reply);
   }
 }
-

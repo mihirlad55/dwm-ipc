@@ -5,18 +5,20 @@
 #include "types.h"
 #endif
 
-#include "IPCClient.h"
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <yajl/yajl_gen.h>
 
+#include "IPCClient.h"
+
+// clang-format off
 #define IPC_MAGIC "DWM-IPC"
-#define IPC_MAGIC_ARR                                                          \
-  { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
+#define IPC_MAGIC_ARR { 'D', 'W', 'M', '-', 'I', 'P', 'C'}
 #define IPC_MAGIC_LEN 7 // Not including null char
 
 #define IPCCOMMAND(FUNC, ARGC, TYPES)                                          \
   { #FUNC, {FUNC }, ARGC, (ArgType[ARGC])TYPES }
+// clang-format on
 
 typedef enum IPCMessageType {
   IPC_TYPE_RUN_COMMAND = 0,

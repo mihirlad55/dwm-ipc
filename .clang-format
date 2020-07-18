@@ -1,0 +1,10 @@
+---
+Language: Cpp
+Standard: Cpp11
+BasedOnStyle: Google
+ColumnLimit: 80
+BreakBeforeBraces: Linux
+IndentWidth: 2
+AlwaysBreakAfterReturnType: AllDefinitions
+AlignEscapedNewlines: Right
+---

@@ -1,20 +1,21 @@
+#include <ctype.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <inttypes.h>
 #include <string.h>
-#include <unistd.h>
-#include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <unistd.h>
 #include <yajl/yajl_gen.h>
-#include <ctype.h>
-#include <stdarg.h>
 
 #define IPC_MAGIC "DWM-IPC"
-#define IPC_MAGIC_ARR                                                          \
-  { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
-#define IPC_MAGIC_LEN 7 // Not including null char
+// clang-format off
+#define IPC_MAGIC_ARR { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
+// clang-format on
+#define IPC_MAGIC_LEN 7  // Not including null char
 
 #define IPC_EVENT_TAG_CHANGE "tag_change_event"
 #define IPC_EVENT_CLIENT_FOCUS_CHANGE "client_focus_change_event"
@@ -123,8 +124,7 @@ recv_message(uint8_t *msg_type, uint32_t *reply_size, uint8_t **reply)
       free(*reply);
       return -2;
     } else if (n == -1) {
-      if (errno == EINTR || errno == EAGAIN)
-        continue;
+      if (errno == EINTR || errno == EAGAIN) continue;
       free(*reply);
       return -1;
     }
@@ -145,8 +145,7 @@ read_socket(IPCMessageType *msg_type, uint32_t *msg_size, char **msg)
 
     if (ret < 0) {
       // Try again (non-fatal error)
-      if (ret == -1 && (errno == EINTR || errno == EAGAIN))
-        continue;
+      if (ret == -1 && (errno == EINTR || errno == EAGAIN)) continue;
 
       fprintf(stderr, "Error receiving response from socket. ");
       fprintf(stderr, "The connection might have been lost.\n");
@@ -198,10 +197,7 @@ static int
 send_message(IPCMessageType msg_type, uint32_t msg_size, uint8_t *msg)
 {
   dwm_ipc_header_t header = {
-    .magic = IPC_MAGIC_ARR,
-    .size = msg_size,
-    .type = msg_type
-  };
+      .magic = IPC_MAGIC_ARR, .size = msg_size, .type = msg_type};
 
   size_t header_size = sizeof(dwm_ipc_header_t);
   size_t total_size = header_size + msg_size;
@@ -298,6 +294,7 @@ run_command(const char *name, char *args[], int argc)
   //   "command": "<name>",
   //   "args": [ ... ]
   // }
+  // clang-format off
   YMAP(
     YSTR("command"); YSTR(name);
     YSTR("args"); YARR(
@@ -314,6 +311,7 @@ run_command(const char *name, char *args[], int argc)
       }
     )
   )
+  // clang-format on
 
   yajl_gen_get_buf(gen, &msg, &msg_size);
 
@@ -364,9 +362,11 @@ get_dwm_client(Window win)
   // {
   //   "client_window_id": "<win>"
   // }
+  // clang-format off
   YMAP(
     YSTR("client_window_id"); YINT(win);
   )
+  // clang-format on
 
   yajl_gen_get_buf(gen, &msg, &msg_size);
 
@@ -392,10 +392,12 @@ subscribe(const char *event)
   //   "event": "<event>",
   //   "action": "subscribe"
   // }
+  // clang-format off
   YMAP(
     YSTR("event"); YSTR(event);
     YSTR("action"); YSTR("subscribe");
   )
+  // clang-format on
 
   yajl_gen_get_buf(gen, &msg, &msg_size);
 
@@ -409,7 +411,7 @@ subscribe(const char *event)
 }
 
 static void
-usage_error(const char *prog_name, const char* format, ...)
+usage_error(const char *prog_name, const char *format, ...)
 {
   va_list args;
   va_start(args, format);
@@ -440,10 +442,10 @@ print_usage(const char *name)
   puts("  get_dwm_client <window_id>      Get dwm client proprties");
   puts("");
   puts("  subscribe [events...]           Subscribe to specified events");
-  puts("                                  Options: "IPC_EVENT_TAG_CHANGE",");
-  puts("                                  "IPC_EVENT_LAYOUT_CHANGE",");
-  puts("                                  "IPC_EVENT_CLIENT_FOCUS_CHANGE",");
-  puts("                                  "IPC_EVENT_MONITOR_FOCUS_CHANGE);
+  puts("                                  Options: " IPC_EVENT_TAG_CHANGE ",");
+  puts("                                  " IPC_EVENT_LAYOUT_CHANGE ",");
+  puts("                                  " IPC_EVENT_CLIENT_FOCUS_CHANGE ",");
+  puts("                                  " IPC_EVENT_MONITOR_FOCUS_CHANGE);
   puts("");
   puts("  help                            Display this message");
   puts("");
@@ -452,10 +454,9 @@ print_usage(const char *name)
 int
 main(int argc, char *argv[])
 {
-  const char* prog_name = argv[0];
+  const char *prog_name = argv[0];
   // Need at least command argument
-  if (argc < 2)
-    usage_error(prog_name, "Expected an argument, got none");
+  if (argc < 2) usage_error(prog_name, "Expected an argument, got none");
 
   connect_to_socket();
   if (sock_fd == -1) {
@@ -468,8 +469,7 @@ main(int argc, char *argv[])
       print_usage(prog_name);
       return 0;
     } else if (strcmp(argv[i], "run_command") == 0) {
-      if (++i >= argc)
-        usage_error(prog_name, "No command specified");
+      if (++i >= argc) usage_error(prog_name, "No command specified");
       // Command name
       char *command = argv[i];
       // Command arguments are everything after command name
@@ -499,8 +499,7 @@ main(int argc, char *argv[])
       return 0;
     } else if (strcmp(argv[i], "subscribe") == 0) {
       if (++i < argc) {
-        for (int j = i; j < argc; j++)
-          subscribe(argv[j]);
+        for (int j = i; j < argc; j++) subscribe(argv[j]);
       } else
         usage_error(prog_name, "Expected event name");
       // Keep listening for events forever
