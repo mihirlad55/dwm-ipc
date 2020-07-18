@@ -12,8 +12,18 @@
 #define YDOUBLE(num) yajl_gen_double(gen, num)
 #define YBOOL(v) yajl_gen_bool(gen, v)
 #define YNULL() yajl_gen_null(gen)
-#define YARR(body) { yajl_gen_array_open(gen); body yajl_gen_array_close(gen); }
-#define YMAP(body) { yajl_gen_map_open(gen); body yajl_gen_map_close(gen); }
+#define YARR(body)                                                             \
+  {                                                                            \
+    yajl_gen_array_open(gen);                                                  \
+    body;                                                                      \
+    yajl_gen_array_close(gen);                                                 \
+  }
+#define YMAP(body)                                                             \
+  {                                                                            \
+    yajl_gen_map_open(gen);                                                    \
+    body;                                                                      \
+    yajl_gen_map_close(gen);                                                   \
+  }
 
 int dump_tag(yajl_gen gen, const char *name, const int tag_mask);
 
@@ -32,16 +42,20 @@ int dump_tag_state(yajl_gen gen, TagState state);
 int dump_tag_event(yajl_gen gen, int mon_num, TagState old_state,
                    TagState new_state);
 
-int dump_client_change_event(yajl_gen gen, Client *old_client,
-                             Client *new_client, int mon_num);
+int dump_client_focus_change_event(yajl_gen gen, Client *old_client,
+                                   Client *new_client, int mon_num);
 
 int dump_layout_change_event(yajl_gen gen, const int mon_num,
                              const char *old_symbol, const Layout *old_layout,
                              const char *new_symbol, const Layout *new_layout);
 
-int dump_monitor_change_event(yajl_gen gen, const int last_mon_num,
-                              const int new_mon_num);
+int dump_monitor_focus_change_event(yajl_gen gen, const int last_mon_num,
+                                    const int new_mon_num);
+
+int dump_focused_title_change_event(yajl_gen gen, const int mon_num,
+                                    const Window client_id,
+                                    const char *old_name, const char *new_name);
 
 int dump_error_message(yajl_gen gen, const char *reason);
 
-#endif // YAJL_DUMPS_H_
+#endif  // YAJL_DUMPS_H_

@@ -2121,10 +2121,18 @@ updatestatus(void)
 void
 updatetitle(Client *c)
 {
+  char oldname[sizeof(c->name)];
+  strcpy(oldname, c->name);
+
 	if (!gettextprop(c->win, netatom[NetWMName], c->name, sizeof c->name))
 		gettextprop(c->win, XA_WM_NAME, c->name, sizeof c->name);
 	if (c->name[0] == '\0') /* hack to mark broken clients */
 		strcpy(c->name, broken);
+
+  for (Monitor *m = mons; m; m = m->next) {
+    if (m->sel == c && strcmp(oldname, c->name) != 0)
+      ipc_focused_title_change_event(m->num, c->win, oldname, c->name);
+  }
 }
 
 void
