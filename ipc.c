@@ -146,7 +146,10 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
   memcpy(msg_type, walk, sizeof(uint8_t));
   walk += sizeof(uint8_t);
 
-  (*reply) = malloc(*reply_size);
+  if (*reply_size > 0)
+    (*reply) = malloc(*reply_size);
+  else
+    return 0;
 
   read_bytes = 0;
   while (read_bytes < *reply_size) {
@@ -905,12 +908,17 @@ ipc_read_client(IPCClient *c, IPCMessageType *msg_type, uint32_t *msg_size,
   }
 
   // Make sure receive message is null terminated to avoid parsing issues
-  size_t len = *msg_size;
-  nullterminate(msg, &len);
-  *msg_size = len;
+  if (*msg_size > 0) {
+    size_t len = *msg_size;
+    nullterminate(msg, &len);
+    *msg_size = len;
+  }
 
   DEBUG("[fd %d] ", fd);
-  DEBUG("Received message: '%.*s' ", *msg_size, *msg);
+  if (*msg_size > 0)
+    DEBUG("Received message: '%.*s' ", *msg_size, *msg);
+  else
+    DEBUG("Received empty message ");
   DEBUG("Message type: %" PRIu8 " ", (uint8_t)*msg_type);
   DEBUG("Message size: %" PRIu32 "\n", *msg_size);
 
