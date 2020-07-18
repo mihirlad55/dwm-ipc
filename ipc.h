@@ -5,18 +5,20 @@
 #include "types.h"
 #endif
 
-#include "IPCClient.h"
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <yajl/yajl_gen.h>
 
+#include "IPCClient.h"
+
+// clang-format off
 #define IPC_MAGIC "DWM-IPC"
-#define IPC_MAGIC_ARR                                                          \
-  { 'D', 'W', 'M', '-', 'I', 'P', 'C' }
+#define IPC_MAGIC_ARR { 'D', 'W', 'M', '-', 'I', 'P', 'C'}
 #define IPC_MAGIC_LEN 7 // Not including null char
 
 #define IPCCOMMAND(FUNC, ARGC, TYPES)                                          \
   { #FUNC, {FUNC }, ARGC, (ArgType[ARGC])TYPES }
+// clang-format on
 
 typedef enum IPCMessageType {
   IPC_TYPE_RUN_COMMAND = 0,
@@ -29,10 +31,11 @@ typedef enum IPCMessageType {
 } IPCMessageType;
 
 typedef enum IPCEvent {
-  IPC_EVENT_TAG_CHANGE = 1,
-  IPC_EVENT_SELECTED_CLIENT_CHANGE = 2,
-  IPC_EVENT_LAYOUT_CHANGE = 4,
-  IPC_EVENT_SELECTED_MONITOR_CHANGE = 8
+  IPC_EVENT_TAG_CHANGE = 1 << 0,
+  IPC_EVENT_CLIENT_FOCUS_CHANGE = 1 << 1,
+  IPC_EVENT_LAYOUT_CHANGE = 1 << 2,
+  IPC_EVENT_MONITOR_FOCUS_CHANGE = 1 << 3,
+  IPC_EVENT_FOCUSED_TITLE_CHANGE = 1 << 4,
 } IPCEvent;
 
 typedef enum IPCSubscriptionAction {
@@ -215,15 +218,15 @@ void ipc_tag_change_event(const int mon_num, TagState old_state,
                           TagState new_state);
 
 /**
- * Send a selected_client_change_event to all subscribers. Should be called only
- * when there has been a selected client change.
+ * Send a client_focus_change_event to all subscribers. Should be called only
+ * when the client focus changes.
  *
  * @param mon_num The index of the monitor (Monitor.num property)
  * @param old_client The old DWM client selection (Monitor.oldsel)
  * @param new_client The new (now current) DWM client selection
  */
-void ipc_selected_client_change_event(const int mon_num, Client *old_client,
-                                      Client *new_client);
+void ipc_client_focus_change_event(const int mon_num, Client *old_client,
+                                   Client *new_client);
 
 /**
  * Send a layout_change_event to all subscribers. Should be called only
@@ -240,14 +243,26 @@ void ipc_layout_change_event(const int mon_num, const char *old_symbol,
                              const Layout *new_layout);
 
 /**
- * Send a monitor_change_event to all subscribers. Should be called only
- * when there has been a selected monitor change.
+ * Send a monitor_focus_change_event to all subscribers. Should be called only
+ * when the monitor focus changes.
  *
  * @param last_mon_num The index of the previously selected monitor
  * @param new_mon_num The index of the newly selected monitor
  */
-void ipc_monitor_change_event(const int last_mon_num, const int new_mon_num);
+void ipc_monitor_focus_change_event(const int last_mon_num,
+                                    const int new_mon_num);
 
+/**
+ * Send a focused_title_change_event to all subscribers. Should only be called
+ * if a selected client has a title change.
+ *
+ * @param mon_num Index of the client's monitor
+ * @param client_id Window XID of client
+ * @param old_name Old name of the client window
+ * @param new_name New name of the client window
+ */
+void ipc_focused_title_change_event(const int mon_num, const Window client_id,
+                                    const char *old_name, const char *new_name);
 /**
  * Check to see if an event has occured and call the *_change_event functions
  * accordingly
