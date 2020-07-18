@@ -21,7 +21,23 @@
 #define IPC_EVENT_LAYOUT_CHANGE "layout_change_event"
 #define IPC_EVENT_MONITOR_FOCUS_CHANGE "monitor_focus_change_event"
 
-#define ystr(str) yajl_gen_string(gen, (unsigned char *)str, strlen(str))
+#define YSTR(str) yajl_gen_string(gen, (unsigned char *)str, strlen(str))
+#define YINT(num) yajl_gen_integer(gen, num)
+#define YDOUBLE(num) yajl_gen_double(gen, num)
+#define YBOOL(v) yajl_gen_bool(gen, v)
+#define YNULL() yajl_gen_null(gen)
+#define YARR(body)                                                             \
+  {                                                                            \
+    yajl_gen_array_open(gen);                                                  \
+    body;                                                                      \
+    yajl_gen_array_close(gen);                                                 \
+  }
+#define YMAP(body)                                                             \
+  {                                                                            \
+    yajl_gen_map_open(gen);                                                    \
+    body;                                                                      \
+    yajl_gen_map_close(gen);                                                   \
+  }
 
 typedef unsigned long Window;
 
@@ -282,26 +298,22 @@ run_command(const char *name, char *args[], int argc)
   //   "command": "<name>",
   //   "args": [ ... ]
   // }
-  yajl_gen_map_open(gen);
-  ystr("command"); ystr(name);
-  ystr("args");
-
-  yajl_gen_array_open(gen);
-
-  for (int i = 0; i < argc; i++) {
-    if (is_signed_int(args[i])) {
-      long long num = atoll(args[i]);
-      yajl_gen_integer(gen, num);
-    } else if (is_float(args[i])) {
-      float num = atof(args[i]);
-      yajl_gen_double(gen, num);
-    } else {
-      ystr(args[i]);
-    }
-  }
-  yajl_gen_array_close(gen);
-
-  yajl_gen_map_close(gen);
+  YMAP(
+    YSTR("command"); YSTR(name);
+    YSTR("args"); YARR(
+      for (int i = 0; i < argc; i++) {
+        if (is_signed_int(args[i])) {
+          long long num = atoll(args[i]);
+          YINT(num);
+        } else if (is_float(args[i])) {
+          float num = atof(args[i]);
+          YDOUBLE(num);
+        } else {
+          YSTR(args[i]);
+        }
+      }
+    )
+  )
 
   yajl_gen_get_buf(gen, &msg, &msg_size);
 
@@ -352,9 +364,9 @@ get_dwm_client(Window win)
   // {
   //   "client_window_id": "<win>"
   // }
-  yajl_gen_map_open(gen);
-  ystr("client_window_id"); yajl_gen_integer(gen, win);
-  yajl_gen_map_close(gen);
+  YMAP(
+    YSTR("client_window_id"); YINT(win);
+  )
 
   yajl_gen_get_buf(gen, &msg, &msg_size);
 
@@ -380,10 +392,10 @@ subscribe(const char *event)
   //   "event": "<event>",
   //   "action": "subscribe"
   // }
-  yajl_gen_map_open(gen);
-  ystr("event"); ystr(event);
-  ystr("action"); ystr("subscribe");
-  yajl_gen_map_close(gen);
+  YMAP(
+    YSTR("event"); YSTR(event);
+    YSTR("action"); YSTR("subscribe");
+  )
 
   yajl_gen_get_buf(gen, &msg, &msg_size);
 
