@@ -127,13 +127,13 @@ dump_monitor(yajl_gen gen, Monitor *mon, int is_selected)
     YSTR("tag_state"); dump_tag_state(gen, mon->tagstate);
 
     YSTR("clients"); YMAP(
-      YSTR("selected"); YINT(mon->sel->win);
+      YSTR("selected"); YINT(mon->sel ? mon->sel->win : 0);
       YSTR("stack"); YARR(
         for (Client* c = mon->stack; c; c = c->snext)
           YINT(c->win);
       )
       YSTR("all"); YARR(
-        for (Client* c = mon->clients; c; c = c->snext)
+        for (Client* c = mon->clients; c; c = c->next)
           YINT(c->win);
       )
     )
