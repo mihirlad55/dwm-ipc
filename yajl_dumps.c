@@ -133,7 +133,7 @@ dump_monitor(yajl_gen gen, Monitor *mon, int is_selected)
           YINT(c->win);
       )
       YSTR("all"); YARR(
-        for (Client* c = mon->clients; c; c = c->snext)
+        for (Client* c = mon->clients; c; c = c->next)
           YINT(c->win);
       )
     )
