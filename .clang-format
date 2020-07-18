@@ -1,6 +1,6 @@
 ---
 Language: Cpp
-Standard: Cpp11
+Standard: Cpp03
 BasedOnStyle: Google
 ColumnLimit: 80
 BreakBeforeBraces: Linux
