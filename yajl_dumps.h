@@ -52,6 +52,10 @@ int dump_layout_change_event(yajl_gen gen, const int mon_num,
 int dump_monitor_focus_change_event(yajl_gen gen, const int last_mon_num,
                                     const int new_mon_num);
 
+int dump_focused_title_change_event(yajl_gen gen, const int mon_num,
+                                    const Window client_id,
+                                    const char *old_name, const char *new_name);
+
 int dump_error_message(yajl_gen gen, const char *reason);
 
 #endif  // YAJL_DUMPS_H_

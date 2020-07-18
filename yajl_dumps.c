@@ -280,6 +280,25 @@ dump_monitor_focus_change_event(yajl_gen gen, const int last_mon_num,
 }
 
 int
+dump_focused_title_change_event(yajl_gen gen, const int mon_num,
+                                const Window client_id, const char *old_name,
+                                const char *new_name)
+{
+  // clang-format off
+  YMAP(
+    YSTR("focused_title_change_event"); YMAP(
+      YSTR("monitor_number"); YINT(mon_num);
+      YSTR("client_window_id"); YINT(client_id);
+      YSTR("old_name"); YSTR(old_name);
+      YSTR("new_name"); YSTR(new_name);
+    )
+  )
+  // clang-format on
+
+  return 0;
+}
+
+int
 dump_error_message(yajl_gen gen, const char *reason)
 {
   // clang-format off

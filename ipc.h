@@ -34,7 +34,8 @@ typedef enum IPCEvent {
   IPC_EVENT_TAG_CHANGE = 1 << 0,
   IPC_EVENT_CLIENT_FOCUS_CHANGE = 1 << 1,
   IPC_EVENT_LAYOUT_CHANGE = 1 << 2,
-  IPC_EVENT_MONITOR_FOCUS_CHANGE = 1 << 3
+  IPC_EVENT_MONITOR_FOCUS_CHANGE = 1 << 3,
+  IPC_EVENT_FOCUSED_TITLE_CHANGE = 1 << 4,
 } IPCEvent;
 
 typedef enum IPCSubscriptionAction {
@@ -251,6 +252,17 @@ void ipc_layout_change_event(const int mon_num, const char *old_symbol,
 void ipc_monitor_focus_change_event(const int last_mon_num,
                                     const int new_mon_num);
 
+/**
+ * Send a focused_title_change_event to all subscribers. Should only be called
+ * if a selected client has a title change.
+ *
+ * @param mon_num Index of the client's monitor
+ * @param client_id Window XID of client
+ * @param old_name Old name of the client window
+ * @param new_name New name of the client window
+ */
+void ipc_focused_title_change_event(const int mon_num, const Window client_id,
+                                    const char *old_name, const char *new_name);
 /**
  * Check to see if an event has occured and call the *_change_event functions
  * accordingly

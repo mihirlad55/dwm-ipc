@@ -464,6 +464,8 @@ ipc_event_stoi(const char *subscription, IPCEvent *event)
     *event = IPC_EVENT_LAYOUT_CHANGE;
   else if (strcmp(subscription, "monitor_focus_change_event") == 0)
     *event = IPC_EVENT_MONITOR_FOCUS_CHANGE;
+  else if (strcmp(subscription, "focused_title_change_event") == 0)
+    *event = IPC_EVENT_FOCUSED_TITLE_CHANGE;
   else
     return -1;
   return 0;
@@ -1046,6 +1048,16 @@ ipc_monitor_focus_change_event(const int last_mon_num, const int new_mon_num)
   ipc_event_init_message(&gen);
   dump_monitor_focus_change_event(gen, last_mon_num, new_mon_num);
   ipc_event_prepare_send_message(gen, IPC_EVENT_MONITOR_FOCUS_CHANGE);
+}
+
+void
+ipc_focused_title_change_event(const int mon_num, const Window client_id,
+                               const char *old_name, const char *new_name)
+{
+  yajl_gen gen;
+  ipc_event_init_message(&gen);
+  dump_focused_title_change_event(gen, mon_num, client_id, old_name, new_name);
+  ipc_event_prepare_send_message(gen, IPC_EVENT_FOCUSED_TITLE_CHANGE);
 }
 
 void
