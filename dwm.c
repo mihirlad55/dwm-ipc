@@ -68,9 +68,6 @@ enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms *
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
 
-#ifndef VERSION
-#include "types.h"
-#else
 typedef struct TagState TagState;
 struct TagState {
 	int selected;
@@ -162,8 +159,6 @@ typedef struct {
 	int isfloating;
 	int monitor;
 } Rule;
-
-#endif // VERSION
 
 /* function declarations */
 static void applyrules(Client *c);

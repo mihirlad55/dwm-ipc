@@ -1,9 +1,6 @@
 #ifndef YAJL_DUMPS_H_
 #define YAJL_DUMPS_H_
 
-#ifndef VERSION
-#include "types.h"
-#endif
 #include <string.h>
 #include <yajl/yajl_gen.h>
 

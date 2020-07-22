@@ -1,10 +1,6 @@
 #ifndef IPC_H_
 #define IPC_H_
 
-#ifndef VERSION
-#include "types.h"
-#endif
-
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <yajl/yajl_gen.h>
