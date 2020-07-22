@@ -78,6 +78,11 @@ struct TagState {
 	int urgent;
 };
 
+typedef struct ClientState ClientState;
+struct ClientState {
+	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
+};
+
 typedef union {
 	long i;
 	unsigned long ui;
@@ -108,6 +113,7 @@ struct Client {
 	Client *snext;
 	Monitor *mon;
 	Window win;
+	ClientState prevstate;
 };
 
 typedef struct {

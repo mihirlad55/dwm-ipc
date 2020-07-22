@@ -5,9 +5,14 @@
 
 typedef struct TagState TagState;
 struct TagState {
-  int selected;
-  int occupied;
-  int urgent;
+	int selected;
+	int occupied;
+	int urgent;
+};
+
+typedef struct ClientState ClientState;
+struct ClientState {
+	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
 };
 
 typedef union {
@@ -40,6 +45,7 @@ struct Client {
 	Client *snext;
 	Monitor *mon;
 	Window win;
+	ClientState prevstate;
 };
 
 typedef struct {
