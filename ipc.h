@@ -1,10 +1,6 @@
 #ifndef IPC_H_
 #define IPC_H_
 
-#ifndef VERSION
-#include "types.h"
-#endif
-
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <yajl/yajl_gen.h>
@@ -36,6 +32,7 @@ typedef enum IPCEvent {
   IPC_EVENT_LAYOUT_CHANGE = 1 << 2,
   IPC_EVENT_MONITOR_FOCUS_CHANGE = 1 << 3,
   IPC_EVENT_FOCUSED_TITLE_CHANGE = 1 << 4,
+  IPC_EVENT_FOCUSED_STATE_CHANGE = 1 << 5
 } IPCEvent;
 
 typedef enum IPCSubscriptionAction {
@@ -263,6 +260,19 @@ void ipc_monitor_focus_change_event(const int last_mon_num,
  */
 void ipc_focused_title_change_event(const int mon_num, const Window client_id,
                                     const char *old_name, const char *new_name);
+
+/**
+ * Send a focused_state_change_event to all subscribers. Should only be called
+ * if a selected client has a state change.
+ *
+ * @param mon_num Index of the client's monitor
+ * @param client_id Window XID of client
+ * @param old_state Old state of the client
+ * @param new_state New state of the client
+ */
+void ipc_focused_state_change_event(const int mon_num, const Window client_id,
+                                    const ClientState *old_state,
+                                    const ClientState *new_state);
 /**
  * Check to see if an event has occured and call the *_change_event functions
  * accordingly

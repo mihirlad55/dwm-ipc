@@ -1,9 +1,6 @@
 #ifndef YAJL_DUMPS_H_
 #define YAJL_DUMPS_H_
 
-#ifndef VERSION
-#include "types.h"
-#endif
 #include <string.h>
 #include <yajl/yajl_gen.h>
 
@@ -55,6 +52,13 @@ int dump_monitor_focus_change_event(yajl_gen gen, const int last_mon_num,
 int dump_focused_title_change_event(yajl_gen gen, const int mon_num,
                                     const Window client_id,
                                     const char *old_name, const char *new_name);
+
+int dump_client_state(yajl_gen gen, const ClientState *state);
+
+int dump_focused_state_change_event(yajl_gen gen, const int mon_num,
+                                    const Window client_id,
+                                    const ClientState *old_state,
+                                    const ClientState *new_state);
 
 int dump_error_message(yajl_gen gen, const char *reason);
 
