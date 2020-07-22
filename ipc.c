@@ -469,6 +469,8 @@ ipc_event_stoi(const char *subscription, IPCEvent *event)
     *event = IPC_EVENT_MONITOR_FOCUS_CHANGE;
   else if (strcmp(subscription, "focused_title_change_event") == 0)
     *event = IPC_EVENT_FOCUSED_TITLE_CHANGE;
+  else if (strcmp(subscription, "focused_state_change_event") == 0)
+    *event = IPC_EVENT_FOCUSED_STATE_CHANGE;
   else
     return -1;
   return 0;
@@ -1069,6 +1071,18 @@ ipc_focused_title_change_event(const int mon_num, const Window client_id,
 }
 
 void
+ipc_focused_state_change_event(const int mon_num, const Window client_id,
+                               const ClientState *old_state,
+                               const ClientState *new_state)
+{
+  yajl_gen gen;
+  ipc_event_init_message(&gen);
+  dump_focused_state_change_event(gen, mon_num, client_id, old_state,
+                                  new_state);
+  ipc_event_prepare_send_message(gen, IPC_EVENT_FOCUSED_STATE_CHANGE);
+}
+
+void
 ipc_send_events(Monitor *mons, Monitor **lastselmon, Monitor *selmon)
 {
   for (Monitor *m = mons; m; m = m->next) {
@@ -1105,6 +1119,21 @@ ipc_send_events(Monitor *mons, Monitor **lastselmon, Monitor *selmon)
       if (*lastselmon != NULL)
         ipc_monitor_focus_change_event((*lastselmon)->num, selmon->num);
       *lastselmon = selmon;
+    }
+
+    Client *sel = m->sel;
+    if (!sel)
+      return;
+    ClientState *o = &m->sel->prevstate;
+    ClientState n = {.oldstate = sel->oldstate,
+                     .isfixed = sel->isfixed,
+                     .isfloating = sel->isfloating,
+                     .isfullscreen = sel->isfullscreen,
+                     .isurgent = sel->isurgent,
+                     .neverfocus = sel->neverfocus};
+    if (memcmp(o, &n, sizeof(ClientState)) != 0) {
+      ipc_focused_state_change_event(m->num, m->sel->win, o, &n);
+      *o = n;
     }
   }
 }

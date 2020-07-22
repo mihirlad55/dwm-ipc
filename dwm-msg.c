@@ -22,6 +22,7 @@
 #define IPC_EVENT_LAYOUT_CHANGE "layout_change_event"
 #define IPC_EVENT_MONITOR_FOCUS_CHANGE "monitor_focus_change_event"
 #define IPC_EVENT_FOCUSED_TITLE_CHANGE "focused_title_change_event"
+#define IPC_EVENT_FOCUSED_STATE_CHANGE "focused_state_change_event"
 
 #define YSTR(str) yajl_gen_string(gen, (unsigned char *)str, strlen(str))
 #define YINT(num) yajl_gen_integer(gen, num)
@@ -447,7 +448,8 @@ print_usage(const char *name)
   puts("                                  " IPC_EVENT_LAYOUT_CHANGE ",");
   puts("                                  " IPC_EVENT_CLIENT_FOCUS_CHANGE ",");
   puts("                                  " IPC_EVENT_MONITOR_FOCUS_CHANGE ",");
-  puts("                                  " IPC_EVENT_FOCUSED_TITLE_CHANGE);
+  puts("                                  " IPC_EVENT_FOCUSED_TITLE_CHANGE ",");
+  puts("                                  " IPC_EVENT_FOCUSED_STATE_CHANGE);
   puts("");
   puts("  help                            Display this message");
   puts("");
