@@ -79,13 +79,15 @@ recv_message(uint8_t *msg_type, uint32_t *reply_size, uint8_t **reply)
     if (n == 0) {
       if (read_bytes == 0) {
         fprintf(stderr, "Unexpectedly reached EOF while reading header.");
-        fprintf(stderr, "Read %" PRIu32 " bytes, expected %" PRIu32 " bytes.\n",
-                read_bytes, *reply_size);
+        fprintf(stderr,
+                "Read %" PRIu32 " bytes, expected %" PRIu32 " total bytes.\n",
+                read_bytes, to_read);
         return -2;
       } else {
         fprintf(stderr, "Unexpectedly reached EOF while reading header.");
-        fprintf(stderr, "Read %" PRIu32 " bytes, expected %" PRIu32 " bytes.\n",
-                read_bytes, *reply_size);
+        fprintf(stderr,
+                "Read %" PRIu32 " bytes, expected %" PRIu32 " total bytes.\n",
+                read_bytes, to_read);
         return -3;
       }
     } else if (n == -1) {
@@ -164,7 +166,8 @@ write_socket(const void *buf, size_t count)
   size_t written = 0;
 
   while (written < count) {
-    const ssize_t n = write(sock_fd, buf + written, count - written);
+    const ssize_t n =
+        write(sock_fd, ((uint8_t *)buf) + written, count - written);
 
     if (n == -1) {
       if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)

@@ -106,13 +106,15 @@ ipc_recv_message(int fd, uint8_t *msg_type, uint32_t *reply_size,
     if (n == 0) {
       if (read_bytes == 0) {
         fprintf(stderr, "Unexpectedly reached EOF while reading header.");
-        fprintf(stderr, "Read %" PRIu32 " bytes, expected %" PRIu32 " bytes.\n",
-                read_bytes, *reply_size);
+        fprintf(stderr,
+                "Read %" PRIu32 " bytes, expected %" PRIu32 " total bytes.\n",
+                read_bytes, to_read);
         return -2;
       } else {
         fprintf(stderr, "Unexpectedly reached EOF while reading header.");
-        fprintf(stderr, "Read %" PRIu32 " bytes, expected %" PRIu32 " bytes.\n",
-                read_bytes, *reply_size);
+        fprintf(stderr,
+                "Read %" PRIu32 " bytes, expected %" PRIu32 " total bytes.\n",
+                read_bytes, to_read);
         return -3;
       }
     } else if (n == -1) {
@@ -1122,8 +1124,7 @@ ipc_send_events(Monitor *mons, Monitor **lastselmon, Monitor *selmon)
     }
 
     Client *sel = m->sel;
-    if (!sel)
-      return;
+    if (!sel) return;
     ClientState *o = &m->sel->prevstate;
     ClientState n = {.oldstate = sel->oldstate,
                      .isfixed = sel->isfixed,
