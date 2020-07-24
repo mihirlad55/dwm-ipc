@@ -121,7 +121,8 @@ jobs:
           * Get all available layouts
           * Get available tags
           * Get client properties
-          * Subscribe to tag change, selected client change, and layout change
+          * Subscribe to tag change, client focus change, and layout change,
+            monitor focus change, focused title change, and client state change
             events
 
           This patch includes a dwm-msg cli program that supports all of the
