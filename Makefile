@@ -30,8 +30,8 @@ dwm: ${OBJ}
 ipc-client: ipc-client.c
 	${CC} ipc-client.c -o $@ ${LDFLAGS}
 
-dwm-msg: dwm-msg.c
-	${CC} dwm-msg.c -o $@ ${LDFLAGS}
+dwm-msg: dwm-msg.o
+	${CC} -o $@ $< ${LDFLAGS}
 
 clean:
 	rm -f dwm dwm-msg config.h ${OBJ} dwm-${VERSION}.tar.gz
