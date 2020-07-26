@@ -1124,7 +1124,7 @@ ipc_send_events(Monitor *mons, Monitor **lastselmon, Monitor *selmon)
     }
 
     Client *sel = m->sel;
-    if (!sel) return;
+    if (!sel) continue;
     ClientState *o = &m->sel->prevstate;
     ClientState n = {.oldstate = sel->oldstate,
                      .isfixed = sel->isfixed,
