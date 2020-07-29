@@ -46,6 +46,7 @@ typedef unsigned long Window;
 
 const char *DEFAULT_SOCKET_PATH = "/tmp/dwm.sock";
 static int sock_fd = -1;
+static unsigned int ignore_reply = 0;
 
 typedef enum IPCMessageType {
   IPC_TYPE_RUN_COMMAND = 0,
@@ -274,6 +275,18 @@ is_signed_int(const char *s)
 }
 
 static void
+flush_socket_reply()
+{
+  IPCMessageType reply_type;
+  uint32_t reply_size;
+  char *reply;
+
+  read_socket(&reply_type, &reply_size, &reply);
+
+  free(reply);
+}
+
+static void
 print_socket_reply()
 {
   IPCMessageType reply_type;
@@ -323,7 +336,10 @@ run_command(const char *name, char *args[], int argc)
 
   send_message(IPC_TYPE_RUN_COMMAND, msg_size, (uint8_t *)msg);
 
-  print_socket_reply();
+  if (!ignore_reply)
+    print_socket_reply();
+  else
+    flush_socket_reply();
 
   yajl_gen_free(gen);
 
@@ -409,7 +425,10 @@ subscribe(const char *event)
 
   send_message(IPC_TYPE_SUBSCRIBE, msg_size, (uint8_t *)msg);
 
-  print_socket_reply();
+  if (!ignore_reply)
+    print_socket_reply();
+  else
+    flush_socket_reply();
 
   yajl_gen_free(gen);
 
@@ -434,7 +453,7 @@ usage_error(const char *prog_name, const char *format, ...)
 static void
 print_usage(const char *name)
 {
-  printf("usage: %s <command> [...]\n", name);
+  printf("usage: %s [options] <command> [...]\n", name);
   puts("");
   puts("Commands:");
   puts("  run_command <name> [args...]    Run an IPC command");
@@ -457,14 +476,16 @@ print_usage(const char *name)
   puts("");
   puts("  help                            Display this message");
   puts("");
+  puts("Options:");
+  puts("  --ignore-reply                  Don't print reply messages from");
+  puts("                                  run_command and subscribe.");
+  puts("");
 }
 
 int
 main(int argc, char *argv[])
 {
   const char *prog_name = argv[0];
-  // Need at least command argument
-  if (argc < 2) usage_error(prog_name, "Expected an argument, got none");
 
   connect_to_socket();
   if (sock_fd == -1) {
@@ -473,6 +494,11 @@ main(int argc, char *argv[])
   }
 
   int i = 1;
+  if (strcmp(argv[i], "--ignore-reply") == 0) {
+    ignore_reply = 1;
+    i++;
+  }
+
   if (i >= argc) usage_error(prog_name, "Expected an argument, got none");
 
   if (strcmp(argv[i], "help") == 0)
