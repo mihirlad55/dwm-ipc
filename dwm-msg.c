@@ -46,6 +46,7 @@ typedef unsigned long Window;
 
 const char *DEFAULT_SOCKET_PATH = "/tmp/dwm.sock";
 static int sock_fd = -1;
+static unsigned int ignore_reply = 0;
 
 typedef enum IPCMessageType {
   IPC_TYPE_RUN_COMMAND = 0,
@@ -274,6 +275,18 @@ is_signed_int(const char *s)
 }
 
 static void
+flush_socket_reply()
+{
+  IPCMessageType reply_type;
+  uint32_t reply_size;
+  char *reply;
+
+  read_socket(&reply_type, &reply_size, &reply);
+
+  free(reply);
+}
+
+static void
 print_socket_reply()
 {
   IPCMessageType reply_type;
@@ -283,6 +296,7 @@ print_socket_reply()
   read_socket(&reply_type, &reply_size, &reply);
 
   printf("%.*s\n", reply_size, reply);
+  fflush(stdout);
   free(reply);
 }
 
@@ -322,7 +336,10 @@ run_command(const char *name, char *args[], int argc)
 
   send_message(IPC_TYPE_RUN_COMMAND, msg_size, (uint8_t *)msg);
 
-  print_socket_reply();
+  if (!ignore_reply)
+    print_socket_reply();
+  else
+    flush_socket_reply();
 
   yajl_gen_free(gen);
 
@@ -408,7 +425,10 @@ subscribe(const char *event)
 
   send_message(IPC_TYPE_SUBSCRIBE, msg_size, (uint8_t *)msg);
 
-  print_socket_reply();
+  if (!ignore_reply)
+    print_socket_reply();
+  else
+    flush_socket_reply();
 
   yajl_gen_free(gen);
 
@@ -433,7 +453,7 @@ usage_error(const char *prog_name, const char *format, ...)
 static void
 print_usage(const char *name)
 {
-  printf("usage: %s <command> [...]\n", name);
+  printf("usage: %s [options] <command> [...]\n", name);
   puts("");
   puts("Commands:");
   puts("  run_command <name> [args...]    Run an IPC command");
@@ -456,14 +476,16 @@ print_usage(const char *name)
   puts("");
   puts("  help                            Display this message");
   puts("");
+  puts("Options:");
+  puts("  --ignore-reply                  Don't print reply messages from");
+  puts("                                  run_command and subscribe.");
+  puts("");
 }
 
 int
 main(int argc, char *argv[])
 {
   const char *prog_name = argv[0];
-  // Need at least command argument
-  if (argc < 2) usage_error(prog_name, "Expected an argument, got none");
 
   connect_to_socket();
   if (sock_fd == -1) {
@@ -471,49 +493,51 @@ main(int argc, char *argv[])
     return 1;
   }
 
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "help") == 0) {
-      print_usage(prog_name);
-      return 0;
-    } else if (strcmp(argv[i], "run_command") == 0) {
-      if (++i >= argc) usage_error(prog_name, "No command specified");
-      // Command name
-      char *command = argv[i];
-      // Command arguments are everything after command name
-      char **command_args = argv + ++i;
-      // Number of command arguments
-      int command_argc = argc - i;
-      run_command(command, command_args, command_argc);
-      return 0;
-    } else if (strcmp(argv[i], "get_monitors") == 0) {
-      get_monitors();
-      return 0;
-    } else if (strcmp(argv[i], "get_tags") == 0) {
-      get_tags();
-      return 0;
-    } else if (strcmp(argv[i], "get_layouts") == 0) {
-      get_layouts();
-      return 0;
-    } else if (strcmp(argv[i], "get_dwm_client") == 0) {
-      if (++i < argc) {
-        if (is_unsigned_int(argv[i])) {
-          Window win = atol(argv[i]);
-          get_dwm_client(win);
-        } else
-          usage_error(prog_name, "Expected unsigned integer argument");
-      } else
-        usage_error(prog_name, "Expected the window id");
-      return 0;
-    } else if (strcmp(argv[i], "subscribe") == 0) {
-      if (++i < argc) {
-        for (int j = i; j < argc; j++) subscribe(argv[j]);
-      } else
-        usage_error(prog_name, "Expected event name");
-      // Keep listening for events forever
-      while (1) {
-        print_socket_reply();
-      }
-    } else
-      usage_error(prog_name, "Invalid argument '%s'", argv[i]);
+  int i = 1;
+  if (strcmp(argv[i], "--ignore-reply") == 0) {
+    ignore_reply = 1;
+    i++;
   }
+
+  if (i >= argc) usage_error(prog_name, "Expected an argument, got none");
+
+  if (strcmp(argv[i], "help") == 0)
+    print_usage(prog_name);
+  else if (strcmp(argv[i], "run_command") == 0) {
+    if (++i >= argc) usage_error(prog_name, "No command specified");
+    // Command name
+    char *command = argv[i];
+    // Command arguments are everything after command name
+    char **command_args = argv + ++i;
+    // Number of command arguments
+    int command_argc = argc - i;
+    run_command(command, command_args, command_argc);
+  } else if (strcmp(argv[i], "get_monitors") == 0) {
+    get_monitors();
+  } else if (strcmp(argv[i], "get_tags") == 0) {
+    get_tags();
+  } else if (strcmp(argv[i], "get_layouts") == 0) {
+    get_layouts();
+  } else if (strcmp(argv[i], "get_dwm_client") == 0) {
+    if (++i < argc) {
+      if (is_unsigned_int(argv[i])) {
+        Window win = atol(argv[i]);
+        get_dwm_client(win);
+      } else
+        usage_error(prog_name, "Expected unsigned integer argument");
+    } else
+      usage_error(prog_name, "Expected the window id");
+  } else if (strcmp(argv[i], "subscribe") == 0) {
+    if (++i < argc) {
+      for (int j = i; j < argc; j++) subscribe(argv[j]);
+    } else
+      usage_error(prog_name, "Expected event name");
+    // Keep listening for events forever
+    while (1) {
+      print_socket_reply();
+    }
+  } else
+    usage_error(prog_name, "Invalid argument '%s'", argv[i]);
+
+  return 0;
 }
