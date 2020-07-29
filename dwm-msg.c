@@ -283,6 +283,7 @@ print_socket_reply()
   read_socket(&reply_type, &reply_size, &reply);
 
   printf("%.*s\n", reply_size, reply);
+  fflush(stdout);
   free(reply);
 }
 
