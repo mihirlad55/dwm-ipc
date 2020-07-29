@@ -472,49 +472,46 @@ main(int argc, char *argv[])
     return 1;
   }
 
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "help") == 0) {
-      print_usage(prog_name);
-      return 0;
-    } else if (strcmp(argv[i], "run_command") == 0) {
-      if (++i >= argc) usage_error(prog_name, "No command specified");
-      // Command name
-      char *command = argv[i];
-      // Command arguments are everything after command name
-      char **command_args = argv + ++i;
-      // Number of command arguments
-      int command_argc = argc - i;
-      run_command(command, command_args, command_argc);
-      return 0;
-    } else if (strcmp(argv[i], "get_monitors") == 0) {
-      get_monitors();
-      return 0;
-    } else if (strcmp(argv[i], "get_tags") == 0) {
-      get_tags();
-      return 0;
-    } else if (strcmp(argv[i], "get_layouts") == 0) {
-      get_layouts();
-      return 0;
-    } else if (strcmp(argv[i], "get_dwm_client") == 0) {
-      if (++i < argc) {
-        if (is_unsigned_int(argv[i])) {
-          Window win = atol(argv[i]);
-          get_dwm_client(win);
-        } else
-          usage_error(prog_name, "Expected unsigned integer argument");
+  int i = 1;
+  if (i >= argc) usage_error(prog_name, "Expected an argument, got none");
+
+  if (strcmp(argv[i], "help") == 0)
+    print_usage(prog_name);
+  else if (strcmp(argv[i], "run_command") == 0) {
+    if (++i >= argc) usage_error(prog_name, "No command specified");
+    // Command name
+    char *command = argv[i];
+    // Command arguments are everything after command name
+    char **command_args = argv + ++i;
+    // Number of command arguments
+    int command_argc = argc - i;
+    run_command(command, command_args, command_argc);
+  } else if (strcmp(argv[i], "get_monitors") == 0) {
+    get_monitors();
+  } else if (strcmp(argv[i], "get_tags") == 0) {
+    get_tags();
+  } else if (strcmp(argv[i], "get_layouts") == 0) {
+    get_layouts();
+  } else if (strcmp(argv[i], "get_dwm_client") == 0) {
+    if (++i < argc) {
+      if (is_unsigned_int(argv[i])) {
+        Window win = atol(argv[i]);
+        get_dwm_client(win);
       } else
-        usage_error(prog_name, "Expected the window id");
-      return 0;
-    } else if (strcmp(argv[i], "subscribe") == 0) {
-      if (++i < argc) {
-        for (int j = i; j < argc; j++) subscribe(argv[j]);
-      } else
-        usage_error(prog_name, "Expected event name");
-      // Keep listening for events forever
-      while (1) {
-        print_socket_reply();
-      }
+        usage_error(prog_name, "Expected unsigned integer argument");
     } else
-      usage_error(prog_name, "Invalid argument '%s'", argv[i]);
-  }
+      usage_error(prog_name, "Expected the window id");
+  } else if (strcmp(argv[i], "subscribe") == 0) {
+    if (++i < argc) {
+      for (int j = i; j < argc; j++) subscribe(argv[j]);
+    } else
+      usage_error(prog_name, "Expected event name");
+    // Keep listening for events forever
+    while (1) {
+      print_socket_reply();
+    }
+  } else
+    usage_error(prog_name, "Invalid argument '%s'", argv[i]);
+
+  return 0;
 }
