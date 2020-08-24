@@ -123,7 +123,6 @@ static IPCCommand ipccommands[] = {
   IPCCOMMAND(  focusmon,            1,      {ARG_TYPE_SINT}   ),
   IPCCOMMAND(  focusstack,          1,      {ARG_TYPE_SINT}   ),
   IPCCOMMAND(  zoom,                1,      {ARG_TYPE_NONE}   ),
-  IPCCOMMAND(  spawn,               1,      {ARG_TYPE_PTR}    ),
   IPCCOMMAND(  incnmaster,          1,      {ARG_TYPE_SINT}   ),
   IPCCOMMAND(  killclient,          1,      {ARG_TYPE_SINT}   ),
   IPCCOMMAND(  togglefloating,      1,      {ARG_TYPE_NONE}   ),
