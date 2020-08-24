@@ -225,13 +225,18 @@ is_float(const char *s)
 {
   size_t len = strlen(s);
   int is_dot_used = 0;
+  int is_minus_used = 0;
 
   // Floats can only have one decimal point in between or digits
+  // Optionally, floats can also be below zero (negative)
   for (int i = 0; i < len; i++) {
     if (isdigit(s[i]))
       continue;
     else if (!is_dot_used && s[i] == '.' && i != 0 && i != len - 1) {
       is_dot_used = 1;
+      continue;
+    } else if (!is_minus_used && s[i] == '-' && i == 0) {
+      is_minus_used = 1;
       continue;
     } else
       return 0;
