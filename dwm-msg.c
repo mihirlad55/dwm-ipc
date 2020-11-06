@@ -499,7 +499,7 @@ main(int argc, char *argv[])
   }
 
   int i = 1;
-  if (strcmp(argv[i], "--ignore-reply") == 0) {
+  if (i < argc && strcmp(argv[i], "--ignore-reply") == 0) {
     ignore_reply = 1;
     i++;
   }
